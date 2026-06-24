@@ -2,8 +2,8 @@
 import { useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Slot, FormSlot, Livello } from '@/types'
-import { formatData, formatGiornoCompleto, formatOra, LIVELLO_LABEL, LIVELLO_COLORE, cn } from '@/lib/utils'
-import { format, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay, parseISO } from 'date-fns'
+import { formatData, formatGiornoCompleto, formatOra, LIVELLO_LABEL, LIVELLO_COLORE, iniziali, cn } from '@/lib/utils'
+import { format, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay } from 'date-fns'
 import { it } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 
@@ -19,6 +19,8 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
   const [showForm, setShowForm] = useState(false)
   const [editSlot, setEditSlot] = useState<Slot | null>(null)
   const [showDettaglio, setShowDettaglio] = useState<Slot | null>(null)
+  const [prenotazioniDettaglio, setPrenotazioniDettaglio] = useState<any[]>([])
+  const [loadingDettaglio, setLoadingDettaglio] = useState(false)
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState<FormSlot>({
     data: format(new Date(), 'yyyy-MM-dd'),
@@ -39,8 +41,29 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
     return 'libero'
   }, [slots])
 
+  async function apriDettaglio(slot: Slot) {
+    setShowDettaglio(slot)
+    setShowForm(false)
+    setLoadingDettaglio(true)
+    try {
+      const { data, error } = await supabase
+        .from('prenotazione')
+        .select(`id, stato, prenotata_at, iscritto:iscritto(id, nome, cognome, email, telefono)`)
+        .eq('slot_id', slot.id)
+        .neq('stato', 'cancellata')
+        .order('prenotata_at')
+      if (error) throw error
+      setPrenotazioniDettaglio(data || [])
+    } catch (err: any) {
+      toast.error('Errore caricamento prenotazioni')
+    } finally {
+      setLoadingDettaglio(false)
+    }
+  }
+
   function apriFormNuovo() {
     setEditSlot(null)
+    setShowDettaglio(null)
     setForm({ data: giornoSelezionato, ora_inizio: '09:00', ora_fine: '10:00', livello: 'base', posti_max: 4 })
     setShowForm(true)
   }
@@ -91,23 +114,28 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
   }
 
   async function aggiornaPresenza(prenotazioneId: string, stato: 'presente' | 'assente') {
-    const { error } = await supabase.from('prenotazione').update({ stato }).eq('id', prenotazioneId)
+    const corrente = prenotazioniDettaglio.find(p => p.id === prenotazioneId)
+    const nuovoStato = corrente?.stato === stato ? 'confermata' : stato
+    const { error } = await supabase.from('prenotazione').update({ stato: nuovoStato }).eq('id', prenotazioneId)
     if (error) { toast.error(error.message); return }
-    // Ricarica slot dettaglio
-    const { data } = await supabase.from('slot').select(`*, prenotazioni:prenotazione(id, stato, iscritto:iscritto(id, nome, cognome))`).eq('id', showDettaglio!.id).single()
-    if (data) { setShowDettaglio(data); setSlots(prev => prev.map(s => s.id === data.id ? data : s)) }
-    toast.success('Presenza aggiornata')
+    setPrenotazioniDettaglio(prev => prev.map(p => p.id === prenotazioneId ? { ...p, stato: nuovoStato } : p))
+    toast.success(nuovoStato === 'presente' ? 'Segnata presente' : nuovoStato === 'assente' ? 'Segnata assente' : 'Presenza rimossa')
   }
 
-  // Render calendario
+  function selectDay(d: number) {
+    const dataStr = format(new Date(meseCorrente.getFullYear(), meseCorrente.getMonth(), d), 'yyyy-MM-dd')
+    setGiornoSelezionato(dataStr)
+    setShowForm(false)
+    setShowDettaglio(null)
+  }
+
   const primoGiorno = startOfMonth(meseCorrente)
   const numGiorni = getDaysInMonth(meseCorrente)
-  const offsetInizio = getDay(primoGiorno)
+  const offsetInizio = primoGiorno.getDay()
   const oggiStr = format(new Date(), 'yyyy-MM-dd')
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Colonna sinistra: calendario + slot del giorno */}
       <div className="lg:col-span-2 space-y-4">
 
         {/* Calendario */}
@@ -127,7 +155,7 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
               const isOggi = dataStr === oggiStr
               const isSel = dataStr === giornoSelezionato
               return (
-                <button key={d} onClick={() => { setGiornoSelezionato(dataStr); setShowForm(false) }}
+                <button key={d} onClick={() => selectDay(d)}
                   className={cn('relative flex flex-col items-center py-1 rounded-lg text-sm transition-colors border',
                     isSel ? 'bg-brand-50 border-brand-200 text-brand-800 font-medium' :
                     isOggi ? 'border-blue-200 text-blue-700' : 'border-transparent hover:bg-gray-50 text-gray-700'
@@ -152,7 +180,7 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
           </div>
         </div>
 
-        {/* Slot del giorno selezionato */}
+        {/* Slot del giorno */}
         <div className="card">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-medium text-sm capitalize">{formatGiornoCompleto(giornoSelezionato)}</h2>
@@ -164,7 +192,7 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
             <div className="space-y-2">
               {slotsDelGiorno.map(slot => (
                 <div key={slot.id}
-                  onClick={() => { setShowDettaglio(slot); setShowForm(false) }}
+                  onClick={() => apriDettaglio(slot)}
                   className={cn('flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors',
                     showDettaglio?.id === slot.id ? 'border-brand-200 bg-brand-50' : 'border-gray-100 hover:bg-gray-50'
                   )}>
@@ -192,8 +220,9 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
         </div>
       </div>
 
-      {/* Colonna destra: form / dettaglio */}
+      {/* Colonna destra */}
       <div className="space-y-4">
+
         {/* Form nuovo/modifica slot */}
         {showForm && (
           <div className="card">
@@ -227,7 +256,7 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
           </div>
         )}
 
-        {/* Dettaglio slot con presenze */}
+        {/* Dettaglio slot con elenco prenotati */}
         {showDettaglio && !showForm && (
           <div className="card">
             <div className="flex items-start justify-between mb-4 pb-3 border-b border-gray-100">
@@ -239,35 +268,47 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
                 </span>
               </div>
               <div className="text-right">
-                <div className="text-lg font-medium">{showDettaglio.posti_occupati}/{showDettaglio.posti_max}</div>
-                <div className="text-xs text-gray-500">posti</div>
+                <div className="text-xl font-medium">{showDettaglio.posti_occupati}/{showDettaglio.posti_max}</div>
+                <div className="text-xs text-gray-500">posti occupati</div>
               </div>
             </div>
 
-            <h4 className="text-xs font-medium text-gray-500 uppercase mb-2">Iscritti prenotati</h4>
-            {!showDettaglio.prenotazioni?.length ? (
-              <p className="text-sm text-gray-400 py-3 text-center">Nessuna prenotazione</p>
-            ) : (
-              <div className="space-y-2">
-                {(showDettaglio.prenotazioni as any[]).filter(p => p.stato !== 'cancellata').map((p: any) => (
-                  <div key={p.id} className="flex items-center gap-2 py-2 border-b border-gray-50 last:border-0">
-                    <div className="w-7 h-7 rounded-full bg-brand-50 flex items-center justify-center text-brand-800 text-xs font-medium flex-shrink-0">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-xs font-medium text-gray-500 uppercase">Iscritti prenotati</h4>
+              {loadingDettaglio && <span className="text-xs text-gray-400">Caricamento...</span>}
+            </div>
+
+            {!loadingDettaglio && prenotazioniDettaglio.length === 0 && (
+              <p className="text-sm text-gray-400 py-4 text-center">Nessuna prenotazione</p>
+            )}
+
+            {!loadingDettaglio && prenotazioniDettaglio.length > 0 && (
+              <div className="space-y-0 divide-y divide-gray-50">
+                {prenotazioniDettaglio.map((p: any) => (
+                  <div key={p.id} className="flex items-center gap-3 py-3">
+                    <div className="w-8 h-8 rounded-full bg-brand-50 flex items-center justify-center text-brand-800 text-xs font-medium flex-shrink-0">
                       {p.iscritto?.nome?.[0]}{p.iscritto?.cognome?.[0]}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{p.iscritto?.nome} {p.iscritto?.cognome}</div>
+                      <div className="text-sm font-medium">{p.iscritto?.nome} {p.iscritto?.cognome}</div>
+                      <div className="text-xs text-gray-400 truncate">{p.iscritto?.email}</div>
+                      {p.iscritto?.telefono && (
+                        <div className="text-xs text-gray-400">{p.iscritto.telefono}</div>
+                      )}
                     </div>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1 flex-shrink-0">
                       <button
                         onClick={() => aggiornaPresenza(p.id, 'presente')}
+                        title="Presente"
                         className={cn('px-2 py-1 rounded text-xs font-medium border transition-colors',
-                          p.stato === 'presente' ? 'bg-green-100 border-green-300 text-green-800' : 'border-gray-200 text-gray-500 hover:bg-green-50')}>
+                          p.stato === 'presente' ? 'bg-green-100 border-green-300 text-green-800' : 'border-gray-200 text-gray-400 hover:bg-green-50')}>
                         ✓
                       </button>
                       <button
                         onClick={() => aggiornaPresenza(p.id, 'assente')}
+                        title="Assente"
                         className={cn('px-2 py-1 rounded text-xs font-medium border transition-colors',
-                          p.stato === 'assente' ? 'bg-red-100 border-red-300 text-red-800' : 'border-gray-200 text-gray-500 hover:bg-red-50')}>
+                          p.stato === 'assente' ? 'bg-red-100 border-red-300 text-red-800' : 'border-gray-200 text-gray-400 hover:bg-red-50')}>
                         ✗
                       </button>
                     </div>
@@ -275,7 +316,10 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
                 ))}
               </div>
             )}
-            <button onClick={() => apriFormModifica(showDettaglio)} className="btn-secondary w-full mt-3 text-xs">Modifica slot</button>
+
+            <button onClick={() => apriFormModifica(showDettaglio)} className="btn-secondary w-full mt-3 text-xs">
+              ✎ Modifica slot
+            </button>
           </div>
         )}
       </div>
