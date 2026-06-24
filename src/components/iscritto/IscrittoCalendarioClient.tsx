@@ -183,8 +183,8 @@ export default function IscrittoCalendarioClient({ iscritto, tesserino: tessInit
               <div className="text-sm text-gray-600">
                 {formatOra((prossimaPrenotazione.slot as any).ora_inizio)}–{formatOra((prossimaPrenotazione.slot as any).ora_fine)}
                 {' · '}
-                <span className={cn('text-xs px-1.5 py-0.5 rounded-full font-medium', LIVELLO_COLORE[(prossimaPrenotazione.slot as any).livello as Livello])}>
-                  {LIVELLO_LABEL[(prossimaPrenotazione.slot as any).livello as Livello]}
+                <span className={cn('text-xs px-1.5 py-0.5 rounded-full font-medium', (LIVELLO_COLORE as Record<string, string>)[(prossimaPrenotazione.slot as any).livello])}>
+                  {(LIVELLO_LABEL as Record<string, string>)[(prossimaPrenotazione.slot as any).livello]}
                 </span>
               </div>
             </div>
