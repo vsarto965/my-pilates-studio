@@ -114,7 +114,7 @@ export default function IscrittoCalendarioClient({ iscritto, tesserino: tessInit
           <div className="bg-white rounded-xl p-5 w-full max-w-sm border border-gray-100">
             <h3 className="font-medium mb-2">{conferma.tipo === 'prenota' ? 'Conferma prenotazione' : 'Cancella prenotazione'}</h3>
             <p className="text-sm text-gray-600 mb-4">
-              <strong>{formatOra(conferma.slot.ora_inizio)}–{formatOra(conferma.slot.ora_fine)}</strong> · <span className={cn('text-xs px-1.5 py-0.5 rounded-full font-medium', LIVELLO_COLORE[conferma.slot.livello])}>{LIVELLO_LABEL[conferma.slot.livello]}</span>
+              <strong>{formatOra(conferma.slot.ora_inizio)}–{formatOra(conferma.slot.ora_fine)}</strong> · <span className={cn('text-xs px-1.5 py-0.5 rounded-full font-medium', (LIVELLO_COLORE as Record<string, string>)[conferma.slot.livello])}>{(LIVELLO_LABEL as Record<string, string>)[conferma.slot.livello]}</span>
               <br /><br />
               {conferma.tipo === 'prenota'
                 ? <>Verrà scalata <strong>1 lezione</strong> dal tesserino. Lezioni rimanenti: <strong>{(tesserino?.lezioni_residue || 1) - 1}</strong></>
@@ -143,8 +143,8 @@ export default function IscrittoCalendarioClient({ iscritto, tesserino: tessInit
             <div>
               <div className="text-xs text-gray-500 mb-1">Il mio tesserino</div>
               <div className="flex items-center gap-2">
-                <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', LIVELLO_COLORE[tesserino.livello])}>
-                  {LIVELLO_LABEL[tesserino.livello]}
+                <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', (LIVELLO_COLORE as Record<string, string>)[tesserino.livello])}>
+                  {(LIVELLO_LABEL as Record<string, string>)[tesserino.livello]}
                 </span>
                 <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', STATO_TESSERINO_COLORE[tesserino.stato])}>
                   {tesserino.stato}
@@ -209,7 +209,7 @@ export default function IscrittoCalendarioClient({ iscritto, tesserino: tessInit
                   <div className="text-sm font-medium capitalize">{formatGiornoCompleto(s.data)}</div>
                   <div className="text-xs text-gray-500">{formatOra(s.ora_inizio)}–{formatOra(s.ora_fine)}</div>
                 </div>
-                <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', LIVELLO_COLORE[s.livello])}>{LIVELLO_LABEL[s.livello]}</span>
+                <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', (LIVELLO_COLORE as Record<string, string>)[s.livello])}>{(LIVELLO_LABEL as Record<string, string>)[s.livello]}</span>
                 <button
                   onClick={() => setConferma({ slot: s, tipo: 'cancella', prenotazioneId: p.id })}
                   className="btn-danger text-xs px-2 py-1">
@@ -285,8 +285,8 @@ export default function IscrittoCalendarioClient({ iscritto, tesserino: tessInit
                   pieno ? 'border-gray-100 opacity-60' : 'border-gray-100 hover:border-brand-200')}>
                   <div className="flex items-center gap-2 mb-2">
                     <span className="font-medium text-sm">{formatOra(slot.ora_inizio)}–{formatOra(slot.ora_fine)}</span>
-                    <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', LIVELLO_COLORE[slot.livello])}>
-                      {LIVELLO_LABEL[slot.livello]}
+                    <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', (LIVELLO_COLORE as Record<string, string>)[slot.livello])}>
+                      {(LIVELLO_LABEL as Record<string, string>)[slot.livello]}
                     </span>
                     {prenotato && <span className="text-xs text-green-700 font-medium ml-auto">✓ Prenotato</span>}
                     {pieno && <span className="text-xs text-red-600 ml-auto">Pieno</span>}
