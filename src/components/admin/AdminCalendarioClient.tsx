@@ -2,8 +2,8 @@
 import { useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Slot, FormSlot, Livello } from '@/types'
-import { formatData, formatGiornoCompleto, formatOra, LIVELLO_LABEL, LIVELLO_COLORE, iniziali, cn } from '@/lib/utils'
-import { format, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay } from 'date-fns'
+import { formatData, formatGiornoCompleto, formatOra, LIVELLO_LABEL, LIVELLO_COLORE, cn } from '@/lib/utils'
+import { format, addMonths, subMonths, startOfMonth, getDaysInMonth, addDays } from 'date-fns'
 import { it } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 
@@ -11,12 +11,26 @@ interface Props { slotsIniziali: Slot[]; adminId: string }
 
 const LIVELLI: Livello[] = ['base', 'intermedio', 'avanzato']
 const DOW = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab']
+const DOW_LABELS = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato']
+
+interface Orario { ora_inizio: string; ora_fine: string }
+
+interface FormGeneratore {
+  data_inizio: string
+  data_fine: string
+  giorni: number[] // 0=Dom, 1=Lun, ... 6=Sab
+  orari: Orario[]
+  livello: Livello
+  posti_max: number
+  note: string
+}
 
 export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props) {
   const [slots, setSlots] = useState<Slot[]>(slotsIniziali)
   const [meseCorrente, setMeseCorrente] = useState(new Date())
   const [giornoSelezionato, setGiornoSelezionato] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [showForm, setShowForm] = useState(false)
+  const [showGeneratore, setShowGeneratore] = useState(false)
   const [editSlot, setEditSlot] = useState<Slot | null>(null)
   const [showDettaglio, setShowDettaglio] = useState<Slot | null>(null)
   const [prenotazioniDettaglio, setPrenotazioniDettaglio] = useState<any[]>([])
@@ -29,8 +43,18 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
     livello: 'base',
     posti_max: 4,
   })
-  const supabase = createClient()
+  const oggiStr = format(new Date(), 'yyyy-MM-dd')
+  const [formGen, setFormGen] = useState<FormGeneratore>({
+    data_inizio: oggiStr,
+    data_fine: oggiStr,
+    giorni: [1, 2, 3, 4, 5], // Lun–Ven di default
+    orari: [{ ora_inizio: '09:00', ora_fine: '10:00' }],
+    livello: 'base',
+    posti_max: 4,
+    note: '',
+  })
 
+  const supabase = createClient()
   const slotsDelGiorno = slots.filter(s => s.data === giornoSelezionato)
 
   const statusGiorno = useCallback((dataStr: string) => {
@@ -44,6 +68,7 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
   async function apriDettaglio(slot: Slot) {
     setShowDettaglio(slot)
     setShowForm(false)
+    setShowGeneratore(false)
     setLoadingDettaglio(true)
     try {
       const { data, error } = await supabase
@@ -54,7 +79,7 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
         .order('prenotata_at')
       if (error) throw error
       setPrenotazioniDettaglio(data || [])
-    } catch (err: any) {
+    } catch {
       toast.error('Errore caricamento prenotazioni')
     } finally {
       setLoadingDettaglio(false)
@@ -64,8 +89,15 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
   function apriFormNuovo() {
     setEditSlot(null)
     setShowDettaglio(null)
+    setShowGeneratore(false)
     setForm({ data: giornoSelezionato, ora_inizio: '09:00', ora_fine: '10:00', livello: 'base', posti_max: 4 })
     setShowForm(true)
+  }
+
+  function apriGeneratore() {
+    setShowForm(false)
+    setShowDettaglio(null)
+    setShowGeneratore(true)
   }
 
   function apriFormModifica(slot: Slot) {
@@ -73,6 +105,7 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
     setForm({ data: slot.data, ora_inizio: formatOra(slot.ora_inizio), ora_fine: formatOra(slot.ora_fine), livello: slot.livello, posti_max: slot.posti_max, note: slot.note })
     setShowForm(true)
     setShowDettaglio(null)
+    setShowGeneratore(false)
   }
 
   async function salvaSlot() {
@@ -103,6 +136,74 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
     }
   }
 
+  async function generaSlotMultipli() {
+    if (!formGen.data_inizio || !formGen.data_fine) {
+      toast.error('Seleziona data inizio e fine')
+      return
+    }
+    if (formGen.giorni.length === 0) {
+      toast.error('Seleziona almeno un giorno della settimana')
+      return
+    }
+    if (formGen.orari.length === 0) {
+      toast.error('Inserisci almeno un orario')
+      return
+    }
+    if (formGen.data_inizio < oggiStr) {
+      toast.error('La data di inizio non può essere nel passato')
+      return
+    }
+    if (formGen.data_fine < formGen.data_inizio) {
+      toast.error('La data di fine deve essere successiva alla data di inizio')
+      return
+    }
+
+    setLoading(true)
+    try {
+      // Calcola tutte le date nel range che corrispondono ai giorni selezionati
+      const nuoviSlots: object[] = []
+      let dataCorrente = new Date(formGen.data_inizio)
+      const dataFine = new Date(formGen.data_fine)
+
+      while (dataCorrente <= dataFine) {
+        const dowCorrente = dataCorrente.getDay() // 0=Dom, 1=Lun, ...
+        if (formGen.giorni.includes(dowCorrente)) {
+          const dataStr = format(dataCorrente, 'yyyy-MM-dd')
+          for (const orario of formGen.orari) {
+            nuoviSlots.push({
+              data: dataStr,
+              ora_inizio: orario.ora_inizio,
+              ora_fine: orario.ora_fine,
+              livello: formGen.livello,
+              posti_max: formGen.posti_max,
+              posti_occupati: 0,
+              stato: 'disponibile',
+              creato_da: adminId,
+              note: formGen.note || null,
+            })
+          }
+        }
+        dataCorrente = addDays(dataCorrente, 1)
+      }
+
+      if (nuoviSlots.length === 0) {
+        toast.error('Nessuno slot generato: controlla i giorni selezionati nel range di date')
+        return
+      }
+
+      const { data, error } = await supabase.from('slot').insert(nuoviSlots).select()
+      if (error) throw error
+
+      setSlots(prev => [...prev, ...(data || [])])
+      toast.success(`${nuoviSlots.length} slot generati con successo!`)
+      setShowGeneratore(false)
+    } catch (err: any) {
+      toast.error(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   async function eliminaSlot(slot: Slot) {
     if (slot.posti_occupati > 0) { toast.error('Impossibile eliminare: ci sono prenotazioni attive'); return }
     if (!confirm('Eliminare questo slot?')) return
@@ -122,22 +223,44 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
     toast.success(nuovoStato === 'presente' ? 'Segnata presente' : nuovoStato === 'assente' ? 'Segnata assente' : 'Presenza rimossa')
   }
 
+  function toggleGiorno(dow: number) {
+    setFormGen(f => ({
+      ...f,
+      giorni: f.giorni.includes(dow) ? f.giorni.filter(g => g !== dow) : [...f.giorni, dow].sort()
+    }))
+  }
+
+  function aggiungiOrario() {
+    if (formGen.orari.length >= 5) return
+    setFormGen(f => ({ ...f, orari: [...f.orari, { ora_inizio: '09:00', ora_fine: '10:00' }] }))
+  }
+
+  function rimuoviOrario(idx: number) {
+    setFormGen(f => ({ ...f, orari: f.orari.filter((_, i) => i !== idx) }))
+  }
+
+  function aggiornaOrario(idx: number, campo: keyof Orario, valore: string) {
+    setFormGen(f => ({
+      ...f,
+      orari: f.orari.map((o, i) => i === idx ? { ...o, [campo]: valore } : o)
+    }))
+  }
+
   function selectDay(d: number) {
     const dataStr = format(new Date(meseCorrente.getFullYear(), meseCorrente.getMonth(), d), 'yyyy-MM-dd')
     setGiornoSelezionato(dataStr)
     setShowForm(false)
     setShowDettaglio(null)
+    setShowGeneratore(false)
   }
 
   const primoGiorno = startOfMonth(meseCorrente)
   const numGiorni = getDaysInMonth(meseCorrente)
   const offsetInizio = primoGiorno.getDay()
-  const oggiStr = format(new Date(), 'yyyy-MM-dd')
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2 space-y-4">
-
         {/* Calendario */}
         <div className="card">
           <div className="flex items-center justify-between mb-4">
@@ -184,7 +307,10 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
         <div className="card">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-medium text-sm capitalize">{formatGiornoCompleto(giornoSelezionato)}</h2>
-            <button onClick={apriFormNuovo} className="btn-primary text-xs px-3 py-1.5">+ Nuovo slot</button>
+            <div className="flex gap-2">
+              <button onClick={apriGeneratore} className="btn-secondary text-xs px-3 py-1.5">⚡ Genera multipli</button>
+              <button onClick={apriFormNuovo} className="btn-primary text-xs px-3 py-1.5">+ Nuovo slot</button>
+            </div>
           </div>
           {slotsDelGiorno.length === 0 ? (
             <p className="text-center text-gray-400 text-sm py-6">Nessuno slot per questo giorno</p>
@@ -223,6 +349,125 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
       {/* Colonna destra */}
       <div className="space-y-4">
 
+        {/* Form genera slot multipli */}
+        {showGeneratore && (
+          <div className="card">
+            <h3 className="font-medium text-sm mb-4">⚡ Genera slot multipli</h3>
+            <div className="space-y-4">
+
+              {/* Range date */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="label">Data inizio</label>
+                  <input type="date" className="input" min={oggiStr} value={formGen.data_inizio}
+                    onChange={e => setFormGen(f => ({ ...f, data_inizio: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="label">Data fine</label>
+                  <input type="date" className="input" min={formGen.data_inizio} value={formGen.data_fine}
+                    onChange={e => setFormGen(f => ({ ...f, data_fine: e.target.value }))} />
+                </div>
+              </div>
+
+              {/* Giorni della settimana */}
+              <div>
+                <label className="label">Giorni della settimana</label>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {[1,2,3,4,5,6,0].map(dow => (
+                    <button key={dow} type="button"
+                      onClick={() => toggleGiorno(dow)}
+                      className={cn('px-2.5 py-1 rounded text-xs font-medium border transition-colors',
+                        formGen.giorni.includes(dow)
+                          ? 'bg-brand-600 border-brand-600 text-white'
+                          : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+                      )}>
+                      {DOW_LABELS[dow].slice(0, 3)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Orari */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="label mb-0">Orari</label>
+                  {formGen.orari.length < 5 && (
+                    <button type="button" onClick={aggiungiOrario}
+                      className="text-xs text-brand-600 hover:text-brand-800 font-medium">
+                      + Aggiungi orario
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  {formGen.orari.map((orario, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <input type="time" className="input flex-1" value={orario.ora_inizio}
+                        onChange={e => aggiornaOrario(idx, 'ora_inizio', e.target.value)} />
+                      <span className="text-gray-400 text-xs">→</span>
+                      <input type="time" className="input flex-1" value={orario.ora_fine}
+                        onChange={e => aggiornaOrario(idx, 'ora_fine', e.target.value)} />
+                      {formGen.orari.length > 1 && (
+                        <button type="button" onClick={() => rimuoviOrario(idx)}
+                          className="text-gray-400 hover:text-red-500 text-sm px-1">✕</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Livello e posti */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="label">Livello</label>
+                  <select className="input" value={formGen.livello}
+                    onChange={e => setFormGen(f => ({ ...f, livello: e.target.value as Livello }))}>
+                    {LIVELLI.map(l => <option key={l} value={l}>{LIVELLO_LABEL[l]}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Posti max</label>
+                  <select className="input" value={formGen.posti_max}
+                    onChange={e => setFormGen(f => ({ ...f, posti_max: Number(e.target.value) }))}>
+                    {[1,2,3,4].map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* Note */}
+              <div>
+                <label className="label">Note (opzionale)</label>
+                <input type="text" className="input" value={formGen.note}
+                  onChange={e => setFormGen(f => ({ ...f, note: e.target.value }))} />
+              </div>
+
+              {/* Anteprima conteggio */}
+              {formGen.data_inizio && formGen.data_fine && formGen.giorni.length > 0 && (() => {
+                let count = 0
+                let d = new Date(formGen.data_inizio)
+                const fine = new Date(formGen.data_fine)
+                while (d <= fine) {
+                  if (formGen.giorni.includes(d.getDay())) count++
+                  d = addDays(d, 1)
+                }
+                const totale = count * formGen.orari.length
+                return totale > 0 ? (
+                  <div className="text-xs text-gray-500 bg-gray-50 rounded px-3 py-2">
+                    Verranno creati <span className="font-semibold text-gray-700">{totale} slot</span>
+                    {' '}({count} {count === 1 ? 'giorno' : 'giorni'} × {formGen.orari.length} {formGen.orari.length === 1 ? 'orario' : 'orari'})
+                  </div>
+                ) : null
+              })()}
+
+              <div className="flex gap-2 pt-1">
+                <button onClick={generaSlotMultipli} disabled={loading} className="btn-primary flex-1">
+                  {loading ? 'Generazione...' : 'Genera slot'}
+                </button>
+                <button onClick={() => setShowGeneratore(false)} className="btn-secondary">Annulla</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Form nuovo/modifica slot */}
         {showForm && (
           <div className="card">
@@ -257,7 +502,7 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
         )}
 
         {/* Dettaglio slot con elenco prenotati */}
-        {showDettaglio && !showForm && (
+        {showDettaglio && !showForm && !showGeneratore && (
           <div className="card">
             <div className="flex items-start justify-between mb-4 pb-3 border-b border-gray-100">
               <div>
@@ -272,16 +517,13 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
                 <div className="text-xs text-gray-500">posti occupati</div>
               </div>
             </div>
-
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-xs font-medium text-gray-500 uppercase">Iscritti prenotati</h4>
               {loadingDettaglio && <span className="text-xs text-gray-400">Caricamento...</span>}
             </div>
-
             {!loadingDettaglio && prenotazioniDettaglio.length === 0 && (
               <p className="text-sm text-gray-400 py-4 text-center">Nessuna prenotazione</p>
             )}
-
             {!loadingDettaglio && prenotazioniDettaglio.length > 0 && (
               <div className="space-y-0 divide-y divide-gray-50">
                 {prenotazioniDettaglio.map((p: any) => (
@@ -316,7 +558,6 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
                 ))}
               </div>
             )}
-
             <button onClick={() => apriFormModifica(showDettaglio)} className="btn-secondary w-full mt-3 text-xs">
               ✎ Modifica slot
             </button>
@@ -326,3 +567,4 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
     </div>
   )
 }
+

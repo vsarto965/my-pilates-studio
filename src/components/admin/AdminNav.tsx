@@ -8,6 +8,7 @@ const NAV = [
   { href: '/admin/calendario', label: 'Calendario' },
   { href: '/admin/tesserini', label: 'Iscritti' },
   { href: '/admin/listino', label: 'Listino' },
+  { href: '/admin/fatture', label: 'Fatture' },
 ]
 
 export default function AdminNav({ email }: { email: string }) {
