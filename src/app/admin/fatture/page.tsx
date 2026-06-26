@@ -13,7 +13,7 @@ export default async function AdminfatturePage() {
     .order('created_at', { ascending: false })
 
   const { data: studio } = await supabase
-    .from('studio')
+  .from('public.studio')
     .select('*')
     .limit(1)
     .single()
