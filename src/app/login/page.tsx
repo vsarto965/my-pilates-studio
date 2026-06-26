@@ -1,17 +1,21 @@
 'use client'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import toast from 'react-hot-toast'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const emailRef = useRef<HTMLInputElement>(null)
+  const passwordRef = useRef<HTMLInputElement>(null)
   const [loading, setLoading] = useState(false)
   const supabase = createClient()
 
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault()
-    if (!email || !password) return
+  async function handleLogin() {
+    const email = emailRef.current?.value || ''
+    const password = passwordRef.current?.value || ''
+    if (!email || !password) {
+      toast.error('Inserisci email e password')
+      return
+    }
     setLoading(true)
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
@@ -45,27 +49,27 @@ export default function LoginPage() {
             <div>
               <label className="label">Email</label>
               <input
+                ref={emailRef}
                 type="text"
                 inputMode="email"
                 className="input"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
                 placeholder="tua@email.it"
+                defaultValue=""
               />
             </div>
             <div>
               <label className="label">Password</label>
               <input
+                ref={passwordRef}
                 type="password"
                 className="input"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••"
+                defaultValue=""
               />
             </div>
             <button
-              onClick={handleLogin as any}
-              disabled={loading || !email || !password}
+              onClick={handleLogin}
+              disabled={loading}
               className="btn-primary w-full mt-2"
             >
               {loading ? 'Accesso in corso...' : 'Accedi'}
