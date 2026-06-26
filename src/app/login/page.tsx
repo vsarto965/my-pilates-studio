@@ -20,17 +20,11 @@ console.log('DATA:', JSON.stringify(data?.user?.email))
 console.log('ERROR:', JSON.stringify(error))
 if (error) throw error
       // Determina ruolo e redirect
-      const { data: admin } = await supabase
-        .from('admin')
-        .select('id')
-        .eq('email', email)
-        .single()
-
-      if (admin) {
-        router.push('/admin/calendario')
-      } else {
-        router.push('/iscritto/calendario')
-      }
+      if (email === 'volo211965@gmail.com') {
+  router.push('/admin/calendario')
+} else {
+  router.push('/iscritto/calendario')
+}
     } catch (err: any) {
       toast.error(err.message === 'Invalid login credentials'
         ? 'Email o password non corretti'
