@@ -25,7 +25,8 @@ if (email === 'volo211965@gmail.com') {
       } else {
         window.location.href = '/iscritto/calendario'
       }
-    } catch (err: any) {
+   } catch (err: any) {
+      alert('ERRORE: ' + err.message)
       toast.error(err.message === 'Invalid login credentials'
         ? 'Email o password non corretti'
         : 'Errore di accesso')
