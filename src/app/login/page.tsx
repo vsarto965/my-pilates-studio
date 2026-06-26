@@ -18,8 +18,9 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) throw error
-      if (email === 'volo211965@gmail.com') {
+if (error) throw error
+alert('login ok, email: ' + email)
+if (email === 'volo211965@gmail.com') {
         window.location.href = '/admin/calendario'
       } else {
         window.location.href = '/iscritto/calendario'
