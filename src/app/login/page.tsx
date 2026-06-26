@@ -54,7 +54,7 @@ if (error) throw error
 
         {/* Form */}
         <div className="card shadow-sm">
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-4" autoComplete="off">
             <div>
               <label className="label">Email</label>
               <input
@@ -64,7 +64,7 @@ if (error) throw error
                 onChange={e => setEmail(e.target.value)}
                 placeholder="tua@email.it"
                 required
-                autoComplete="email"
+                autoComplete="off"
               />
             </div>
             <div>
