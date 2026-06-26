@@ -9,11 +9,11 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const supabase = createClient()
 
-  async function handleLogin() {
+ async function handleLogin() {
     const email = emailRef.current?.value || ''
     const password = passwordRef.current?.value || ''
+    alert('email: ' + email + ' | pass: ' + password)
     if (!email || !password) {
-      toast.error('Inserisci email e password')
       return
     }
     setLoading(true)
