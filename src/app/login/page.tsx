@@ -20,10 +20,10 @@ console.log('DATA:', JSON.stringify(data?.user?.email))
 console.log('ERROR:', JSON.stringify(error))
 if (error) throw error
       // Determina ruolo e redirect
-      if (email === 'volo211965@gmail.com') {
-  router.push('/admin/calendario')
+if (email === 'volo211965@gmail.com') {
+  window.location.href = '/admin/calendario'
 } else {
-  router.push('/iscritto/calendario')
+  window.location.href = '/iscritto/calendario'
 }
     } catch (err: any) {
       toast.error(err.message === 'Invalid login credentials'
