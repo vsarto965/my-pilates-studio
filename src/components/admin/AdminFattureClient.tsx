@@ -207,246 +207,223 @@ export default function AdminFattureClient({ fattureIniziali, studioIniziale }: 
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold">Fatture</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {fatture.filter(f => f.stato === 'bozza').length} in bozza · {fatture.filter(f => f.stato === 'emessa').length} emesse
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={() => { setShowStudio(true); setShowNuovaFattura(false) }} className="btn-secondary text-xs px-3 py-1.5">
-            ⚙ Dati studio
-          </button>
-          <button onClick={() => { setShowNuovaFattura(true); setShowStudio(false) }} className="btn-primary text-xs px-3 py-1.5">
-            + Nuova fattura
-          </button>
-        </div>
+      <div>
+        <h1 className="text-lg font-semibold">Fatture</h1>
+        <p className="text-sm text-gray-500 mt-0.5">
+          {fatture.filter(f => f.stato === 'bozza').length} in bozza · {fatture.filter(f => f.stato === 'emessa').length} emesse
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Lista fatture */}
-        <div className="lg:col-span-2 space-y-4">
-          {/* Filtri */}
-          <div className="flex gap-2">
-            {['tutti', 'bozza', 'emessa', 'annullata'].map(s => (
-              <button key={s} onClick={() => setFiltroStato(s)}
-                className={cn('px-3 py-1 rounded text-xs font-medium border transition-colors capitalize',
-                  filtroStato === s ? 'bg-brand-600 border-brand-600 text-white' : 'border-gray-200 text-gray-500 hover:bg-gray-50'
-                )}>
-                {s === 'tutti' ? 'Tutte' : STATO_LABEL[s]}
-              </button>
-            ))}
-          </div>
+      {/* Bottoni azione */}
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          onClick={() => { setShowStudio(true); setShowNuovaFattura(false) }}
+          className="btn-secondary text-xs px-3 py-2.5 flex items-center justify-center gap-1.5">
+          ⚙ Dati studio
+        </button>
+        <button
+          onClick={() => { setShowNuovaFattura(true); setShowStudio(false) }}
+          className="btn-primary text-xs px-3 py-2.5 flex items-center justify-center gap-1.5">
+          + Nuova fattura
+        </button>
+      </div>
 
-          {/* Tabella */}
-          <div className="card p-0 overflow-hidden">
-            {fattureFiltrate.length === 0 ? (
-              <p className="text-center text-gray-400 text-sm py-10">Nessuna fattura</p>
-            ) : (
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50">
-                    <th className="text-left text-xs font-medium text-gray-500 px-4 py-3">N.</th>
-                    <th className="text-left text-xs font-medium text-gray-500 px-4 py-3">Iscritto</th>
-                    <th className="text-left text-xs font-medium text-gray-500 px-4 py-3">Descrizione</th>
-                    <th className="text-right text-xs font-medium text-gray-500 px-4 py-3">Totale</th>
-                    <th className="text-left text-xs font-medium text-gray-500 px-4 py-3">Stato</th>
-                    <th className="px-4 py-3"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {fattureFiltrate.map(f => (
-                    <tr key={f.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-3 text-sm font-medium text-gray-700">
-                        {f.numero || <span className="text-gray-400 italic text-xs">bozza</span>}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm font-medium">{f.iscritto.nome} {f.iscritto.cognome}</div>
-                        <div className="text-xs text-gray-400">{f.iscritto.email}</div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 max-w-[180px] truncate">
-                        {f.descrizione}
-                      </td>
-                      <td className="px-4 py-3 text-sm font-medium text-right">
-                        € {Number(f.importo_totale).toFixed(2)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', STATO_COLORE[f.stato])}>
-                          {STATO_LABEL[f.stato]}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-1 justify-end">
-                          {f.stato === 'bozza' && (
-                            <button
-                              onClick={() => emettiFattura(f)}
-                              disabled={loading === f.id}
-                              className="px-2 py-1 text-xs bg-green-50 text-green-700 border border-green-200 rounded hover:bg-green-100 transition-colors"
-                            >
-                              {loading === f.id ? '...' : 'Emetti'}
-                            </button>
-                          )}
-                          {f.stato === 'emessa' && (
-                            <button
-                              onClick={() => scaricaPdf(f)}
-                              disabled={loadingPdf === f.id}
-                              className="px-2 py-1 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded hover:bg-blue-100 transition-colors"
-                            >
-                              {loadingPdf === f.id ? '...' : '↓ PDF'}
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
+      {/* Form nuova fattura */}
+      {showNuovaFattura && (
+        <div className="card" id="form-fattura">
+          <h3 className="font-medium text-sm mb-4">Nuova fattura</h3>
+          <div className="space-y-3">
+            <div className="relative">
+              <label className="label">Iscritto</label>
+              <input type="text" className="input" placeholder="Cerca per nome o email..."
+                value={cercaIscritto} onChange={e => cercaIscritti(e.target.value)} autoComplete="off" />
+              {iscrittiRisultati.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+                  {iscrittiRisultati.map(i => (
+                    <button key={i.id} onClick={() => selezionaIscritto(i)}
+                      className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors">
+                      <div className="text-sm font-medium">{i.nome} {i.cognome}</div>
+                      <div className="text-xs text-gray-400">{i.email}</div>
+                    </button>
                   ))}
-                </tbody>
-              </table>
+                </div>
+              )}
+            </div>
+            <div>
+              <label className="label">Descrizione</label>
+              <input type="text" className="input" placeholder="es. Tesserino 10 lezioni - Base"
+                value={formNuova.descrizione} onChange={e => setFormNuova(f => ({ ...f, descrizione: e.target.value }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="label">Imponibile (€)</label>
+                <input type="number" className="input" placeholder="0.00" step="0.01" min="0"
+                  value={formNuova.importo_imponibile} onChange={e => setFormNuova(f => ({ ...f, importo_imponibile: e.target.value }))} />
+              </div>
+              <div>
+                <label className="label">IVA (%)</label>
+                <input type="number" className="input" placeholder="22" step="0.01" min="0"
+                  value={formNuova.aliquota_iva} onChange={e => setFormNuova(f => ({ ...f, aliquota_iva: e.target.value }))} />
+              </div>
+            </div>
+            {formNuova.importo_imponibile && (
+              <div className="bg-gray-50 rounded px-3 py-2 text-xs space-y-1">
+                <div className="flex justify-between text-gray-500">
+                  <span>IVA {formNuova.aliquota_iva}%</span>
+                  <span>€ {iva}</span>
+                </div>
+                <div className="flex justify-between font-semibold text-gray-700">
+                  <span>Totale</span>
+                  <span>€ {totale}</span>
+                </div>
+              </div>
             )}
+            <div className="flex gap-2 pt-1">
+              <button onClick={salvaNuovaFattura} disabled={loading === 'nuova'} className="btn-primary flex-1">
+                {loading === 'nuova' ? 'Salvataggio...' : 'Crea bozza'}
+              </button>
+              <button onClick={() => setShowNuovaFattura(false)} className="btn-secondary">Annulla</button>
+            </div>
           </div>
         </div>
+      )}
 
-        {/* Pannello laterale */}
-        <div className="space-y-4">
+      {/* Form dati studio */}
+      {showStudio && (
+        <div className="card">
+          <h3 className="font-medium text-sm mb-4">⚙ Dati studio</h3>
+          <div className="space-y-3">
+            <div>
+              <label className="label">Nome studio</label>
+              <input type="text" className="input" value={formStudio.nome}
+                onChange={e => setFormStudio(f => ({ ...f, nome: e.target.value }))} />
+            </div>
+            <div>
+              <label className="label">Indirizzo</label>
+              <input type="text" className="input" value={formStudio.indirizzo}
+                onChange={e => setFormStudio(f => ({ ...f, indirizzo: e.target.value }))} />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="label">CAP</label>
+                <input type="text" className="input" value={formStudio.cap}
+                  onChange={e => setFormStudio(f => ({ ...f, cap: e.target.value }))} />
+              </div>
+              <div className="col-span-2">
+                <label className="label">Città</label>
+                <input type="text" className="input" value={formStudio.citta}
+                  onChange={e => setFormStudio(f => ({ ...f, citta: e.target.value }))} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="label">Provincia</label>
+                <input type="text" className="input" maxLength={2} value={formStudio.provincia}
+                  onChange={e => setFormStudio(f => ({ ...f, provincia: e.target.value.toUpperCase() }))} />
+              </div>
+              <div>
+                <label className="label">IVA default (%)</label>
+                <input type="number" className="input" value={formStudio.iva_default}
+                  onChange={e => setFormStudio(f => ({ ...f, iva_default: Number(e.target.value) }))} />
+              </div>
+            </div>
+            <div>
+              <label className="label">Partita IVA</label>
+              <input type="text" className="input" value={formStudio.partita_iva}
+                onChange={e => setFormStudio(f => ({ ...f, partita_iva: e.target.value }))} />
+            </div>
+            <div>
+              <label className="label">Codice Fiscale</label>
+              <input type="text" className="input" value={formStudio.codice_fiscale}
+                onChange={e => setFormStudio(f => ({ ...f, codice_fiscale: e.target.value }))} />
+            </div>
+            <div>
+              <label className="label">Email</label>
+              <input type="email" className="input" value={formStudio.email}
+                onChange={e => setFormStudio(f => ({ ...f, email: e.target.value }))} />
+            </div>
+            <div>
+              <label className="label">Telefono</label>
+              <input type="text" className="input" value={formStudio.telefono}
+                onChange={e => setFormStudio(f => ({ ...f, telefono: e.target.value }))} />
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button onClick={salvaStudio} disabled={loading === 'studio'} className="btn-primary flex-1">
+                {loading === 'studio' ? 'Salvataggio...' : 'Salva'}
+              </button>
+              <button onClick={() => setShowStudio(false)} className="btn-secondary">Annulla</button>
+            </div>
+          </div>
+        </div>
+      )}
 
-          {/* Form nuova fattura */}
-          {showNuovaFattura && (
-            <div className="card">
-              <h3 className="font-medium text-sm mb-4">Nuova fattura</h3>
-              <div className="space-y-3">
+      {/* Filtri stato */}
+      <div className="flex gap-2 flex-wrap">
+        {['tutti', 'bozza', 'emessa', 'annullata'].map(s => (
+          <button key={s} onClick={() => setFiltroStato(s)}
+            className={cn('px-3 py-1.5 rounded text-xs font-medium border transition-colors capitalize',
+              filtroStato === s ? 'bg-brand-600 border-brand-600 text-white' : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+            )}>
+            {s === 'tutti' ? 'Tutte' : STATO_LABEL[s]}
+          </button>
+        ))}
+      </div>
 
-                {/* Ricerca iscritto */}
-                <div className="relative">
-                  <label className="label">Iscritto</label>
-                  <input type="text" className="input" placeholder="Cerca per nome o email..."
-                    value={cercaIscritto} onChange={e => cercaIscritti(e.target.value)} autoComplete="off" />
-                  {iscrittiRisultati.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
-                      {iscrittiRisultati.map(i => (
-                        <button key={i.id} onClick={() => selezionaIscritto(i)}
-                          className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors">
-                          <div className="text-sm font-medium">{i.nome} {i.cognome}</div>
-                          <div className="text-xs text-gray-400">{i.email}</div>
-                        </button>
-                      ))}
-                    </div>
+      {/* Lista fatture come card (mobile-friendly) */}
+      {fattureFiltrate.length === 0 ? (
+        <p className="text-center text-gray-400 text-sm py-10">Nessuna fattura</p>
+      ) : (
+        <div className="space-y-2">
+          {fattureFiltrate.map(f => (
+            <div key={f.id} className="card p-4">
+              {/* Riga 1: numero + stato */}
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-semibold text-gray-700">
+                  {f.numero || <span className="text-gray-400 italic font-normal text-xs">bozza</span>}
+                </span>
+                <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', STATO_COLORE[f.stato])}>
+                  {STATO_LABEL[f.stato]}
+                </span>
+              </div>
+              {/* Riga 2: iscritto */}
+              <div className="mb-1">
+                <span className="text-sm font-medium">{f.iscritto.nome} {f.iscritto.cognome}</span>
+                <span className="text-xs text-gray-400 ml-2">{f.iscritto.email}</span>
+              </div>
+              {/* Riga 3: descrizione + totale */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500 flex-1 mr-2 truncate">{f.descrizione}</span>
+                <span className="text-sm font-semibold text-gray-700 flex-shrink-0">
+                  € {Number(f.importo_totale).toFixed(2)}
+                </span>
+              </div>
+              {/* Azioni */}
+              {(f.stato === 'bozza' || f.stato === 'emessa') && (
+                <div className="mt-3 pt-3 border-t border-gray-100 flex gap-2">
+                  {f.stato === 'bozza' && (
+                    <button
+                      onClick={() => emettiFattura(f)}
+                      disabled={loading === f.id}
+                      className="flex-1 py-1.5 text-xs bg-green-50 text-green-700 border border-green-200 rounded hover:bg-green-100 transition-colors font-medium">
+                      {loading === f.id ? '...' : '✓ Emetti'}
+                    </button>
+                  )}
+                  {f.stato === 'emessa' && (
+                    <button
+                      onClick={() => scaricaPdf(f)}
+                      disabled={loadingPdf === f.id}
+                      className="flex-1 py-1.5 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded hover:bg-blue-100 transition-colors font-medium">
+                      {loadingPdf === f.id ? '...' : '↓ Scarica PDF'}
+                    </button>
                   )}
                 </div>
-
-                <div>
-                  <label className="label">Descrizione</label>
-                  <input type="text" className="input" placeholder="es. Tesserino 10 lezioni - Base"
-                    value={formNuova.descrizione} onChange={e => setFormNuova(f => ({ ...f, descrizione: e.target.value }))} />
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="label">Imponibile (€)</label>
-                    <input type="number" className="input" placeholder="0.00" step="0.01" min="0"
-                      value={formNuova.importo_imponibile} onChange={e => setFormNuova(f => ({ ...f, importo_imponibile: e.target.value }))} />
-                  </div>
-                  <div>
-                    <label className="label">IVA (%)</label>
-                    <input type="number" className="input" placeholder="22" step="0.01" min="0"
-                      value={formNuova.aliquota_iva} onChange={e => setFormNuova(f => ({ ...f, aliquota_iva: e.target.value }))} />
-                  </div>
-                </div>
-
-                {formNuova.importo_imponibile && (
-                  <div className="bg-gray-50 rounded px-3 py-2 text-xs space-y-1">
-                    <div className="flex justify-between text-gray-500">
-                      <span>IVA {formNuova.aliquota_iva}%</span>
-                      <span>€ {iva}</span>
-                    </div>
-                    <div className="flex justify-between font-semibold text-gray-700">
-                      <span>Totale</span>
-                      <span>€ {totale}</span>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex gap-2 pt-1">
-                  <button onClick={salvaNuovaFattura} disabled={loading === 'nuova'} className="btn-primary flex-1">
-                    {loading === 'nuova' ? 'Salvataggio...' : 'Crea bozza'}
-                  </button>
-                  <button onClick={() => setShowNuovaFattura(false)} className="btn-secondary">Annulla</button>
-                </div>
-              </div>
+              )}
             </div>
-          )}
-
-          {/* Form dati studio */}
-          {showStudio && (
-            <div className="card">
-              <h3 className="font-medium text-sm mb-4">⚙ Dati studio</h3>
-              <div className="space-y-3">
-                <div>
-                  <label className="label">Nome studio</label>
-                  <input type="text" className="input" value={formStudio.nome}
-                    onChange={e => setFormStudio(f => ({ ...f, nome: e.target.value }))} />
-                </div>
-                <div>
-                  <label className="label">Indirizzo</label>
-                  <input type="text" className="input" value={formStudio.indirizzo}
-                    onChange={e => setFormStudio(f => ({ ...f, indirizzo: e.target.value }))} />
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <label className="label">CAP</label>
-                    <input type="text" className="input" value={formStudio.cap}
-                      onChange={e => setFormStudio(f => ({ ...f, cap: e.target.value }))} />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="label">Città</label>
-                    <input type="text" className="input" value={formStudio.citta}
-                      onChange={e => setFormStudio(f => ({ ...f, citta: e.target.value }))} />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="label">Provincia</label>
-                    <input type="text" className="input" maxLength={2} value={formStudio.provincia}
-                      onChange={e => setFormStudio(f => ({ ...f, provincia: e.target.value.toUpperCase() }))} />
-                  </div>
-                  <div>
-                    <label className="label">IVA default (%)</label>
-                    <input type="number" className="input" value={formStudio.iva_default}
-                      onChange={e => setFormStudio(f => ({ ...f, iva_default: Number(e.target.value) }))} />
-                  </div>
-                </div>
-                <div>
-                  <label className="label">Partita IVA</label>
-                  <input type="text" className="input" value={formStudio.partita_iva}
-                    onChange={e => setFormStudio(f => ({ ...f, partita_iva: e.target.value }))} />
-                </div>
-                <div>
-                  <label className="label">Codice Fiscale</label>
-                  <input type="text" className="input" value={formStudio.codice_fiscale}
-                    onChange={e => setFormStudio(f => ({ ...f, codice_fiscale: e.target.value }))} />
-                </div>
-                <div>
-                  <label className="label">Email</label>
-                  <input type="email" className="input" value={formStudio.email}
-                    onChange={e => setFormStudio(f => ({ ...f, email: e.target.value }))} />
-                </div>
-                <div>
-                  <label className="label">Telefono</label>
-                  <input type="text" className="input" value={formStudio.telefono}
-                    onChange={e => setFormStudio(f => ({ ...f, telefono: e.target.value }))} />
-                </div>
-                <div className="flex gap-2 pt-1">
-                  <button onClick={salvaStudio} disabled={loading === 'studio'} className="btn-primary flex-1">
-                    {loading === 'studio' ? 'Salvataggio...' : 'Salva'}
-                  </button>
-                  <button onClick={() => setShowStudio(false)} className="btn-secondary">Annulla</button>
-                </div>
-              </div>
-            </div>
-          )}
+          ))}
         </div>
-      </div>
+      )}
     </div>
   )
 }
