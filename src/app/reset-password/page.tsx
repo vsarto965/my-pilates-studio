@@ -9,16 +9,44 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false)
   const [pronto, setPronto] = useState(false)
   const [fatto, setFatto] = useState(false)
+  const [erroreLink, setErroreLink] = useState(false)
   const supabase = createClient()
 
-  // Supabase manda un token nell'URL — dobbiamo aspettare che venga letto
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setPronto(true)
+    // Supabase manda il token come hash nell'URL: #access_token=...&type=recovery
+    const hash = window.location.hash
+    if (hash && hash.includes('access_token') && hash.includes('type=recovery')) {
+      // Estrai i parametri dall'hash
+      const params = new URLSearchParams(hash.substring(1))
+      const accessToken = params.get('access_token')
+      const refreshToken = params.get('refresh_token') || ''
+      if (accessToken) {
+        // Imposta la sessione manualmente con il token dell'email
+        supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+          .then(({ error }) => {
+            if (error) {
+              setErroreLink(true)
+            } else {
+              setPronto(true)
+            }
+          })
+      } else {
+        setErroreLink(true)
       }
-    })
-    return () => subscription.unsubscribe()
+    } else {
+      // Prova anche con query params (alcune versioni di Supabase)
+      const params = new URLSearchParams(window.location.search)
+      const code = params.get('code')
+      if (code) {
+        supabase.auth.exchangeCodeForSession(code)
+          .then(({ error }) => {
+            if (error) setErroreLink(true)
+            else setPronto(true)
+          })
+      } else {
+        setErroreLink(true)
+      }
+    }
   }, [])
 
   async function handleReset() {
@@ -60,9 +88,27 @@ export default function ResetPasswordPage() {
         </div>
 
         {/* Attesa token */}
-        {!pronto && !fatto && (
+        {!pronto && !fatto && !erroreLink && (
           <div className="card shadow-sm text-center py-6">
             <p className="text-sm text-gray-500">Verifica del link in corso...</p>
+          </div>
+        )}
+
+        {/* Link non valido */}
+        {erroreLink && (
+          <div className="card shadow-sm text-center space-y-4">
+            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto text-red-500 text-xl">
+              !
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-800">Link non valido o scaduto</p>
+              <p className="text-sm text-gray-500 mt-1">Richiedi un nuovo link dalla pagina di login.</p>
+            </div>
+            <button
+              onClick={() => { window.location.href = '/login' }}
+              className="btn-primary w-full">
+              Torna al login
+            </button>
           </div>
         )}
 
@@ -96,8 +142,7 @@ export default function ResetPasswordPage() {
               <button
                 onClick={handleReset}
                 disabled={loading}
-                className="btn-primary w-full"
-              >
+                className="btn-primary w-full">
                 {loading ? 'Salvataggio...' : 'Salva nuova password'}
               </button>
             </div>
