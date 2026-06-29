@@ -18,7 +18,7 @@ interface Orario { ora_inizio: string; ora_fine: string }
 interface FormGeneratore {
   data_inizio: string
   data_fine: string
-  giorni: number[] // 0=Dom, 1=Lun, ... 6=Sab
+  giorni: number[]
   orari: Orario[]
   livello: Livello
   posti_max: number
@@ -47,7 +47,7 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
   const [formGen, setFormGen] = useState<FormGeneratore>({
     data_inizio: oggiStr,
     data_fine: oggiStr,
-    giorni: [1, 2, 3, 4, 5], // Lun–Ven di default
+    giorni: [1, 2, 3, 4, 5],
     orari: [{ ora_inizio: '09:00', ora_fine: '10:00' }],
     livello: 'base',
     posti_max: 4,
@@ -92,12 +92,19 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
     setShowGeneratore(false)
     setForm({ data: giornoSelezionato, ora_inizio: '09:00', ora_fine: '10:00', livello: 'base', posti_max: 4 })
     setShowForm(true)
+    // Su mobile: scroll verso il form
+    setTimeout(() => {
+      document.getElementById('pannello-laterale')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 50)
   }
 
   function apriGeneratore() {
     setShowForm(false)
     setShowDettaglio(null)
     setShowGeneratore(true)
+    setTimeout(() => {
+      document.getElementById('pannello-laterale')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 50)
   }
 
   function apriFormModifica(slot: Slot) {
@@ -106,6 +113,9 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
     setShowForm(true)
     setShowDettaglio(null)
     setShowGeneratore(false)
+    setTimeout(() => {
+      document.getElementById('pannello-laterale')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 50)
   }
 
   async function salvaSlot() {
@@ -137,63 +147,35 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
   }
 
   async function generaSlotMultipli() {
-    if (!formGen.data_inizio || !formGen.data_fine) {
-      toast.error('Seleziona data inizio e fine')
-      return
-    }
-    if (formGen.giorni.length === 0) {
-      toast.error('Seleziona almeno un giorno della settimana')
-      return
-    }
-    if (formGen.orari.length === 0) {
-      toast.error('Inserisci almeno un orario')
-      return
-    }
-    if (formGen.data_inizio < oggiStr) {
-      toast.error('La data di inizio non può essere nel passato')
-      return
-    }
-    if (formGen.data_fine < formGen.data_inizio) {
-      toast.error('La data di fine deve essere successiva alla data di inizio')
-      return
-    }
+    if (!formGen.data_inizio || !formGen.data_fine) { toast.error('Seleziona data inizio e fine'); return }
+    if (formGen.giorni.length === 0) { toast.error('Seleziona almeno un giorno della settimana'); return }
+    if (formGen.orari.length === 0) { toast.error('Inserisci almeno un orario'); return }
+    if (formGen.data_inizio < oggiStr) { toast.error('La data di inizio non può essere nel passato'); return }
+    if (formGen.data_fine < formGen.data_inizio) { toast.error('La data di fine deve essere successiva alla data di inizio'); return }
 
     setLoading(true)
     try {
-      // Calcola tutte le date nel range che corrispondono ai giorni selezionati
       const nuoviSlots: object[] = []
       let dataCorrente = new Date(formGen.data_inizio)
       const dataFine = new Date(formGen.data_fine)
-
       while (dataCorrente <= dataFine) {
-        const dowCorrente = dataCorrente.getDay() // 0=Dom, 1=Lun, ...
+        const dowCorrente = dataCorrente.getDay()
         if (formGen.giorni.includes(dowCorrente)) {
           const dataStr = format(dataCorrente, 'yyyy-MM-dd')
           for (const orario of formGen.orari) {
             nuoviSlots.push({
-              data: dataStr,
-              ora_inizio: orario.ora_inizio,
-              ora_fine: orario.ora_fine,
-              livello: formGen.livello,
-              posti_max: formGen.posti_max,
-              posti_occupati: 0,
-              stato: 'disponibile',
-              creato_da: adminId,
+              data: dataStr, ora_inizio: orario.ora_inizio, ora_fine: orario.ora_fine,
+              livello: formGen.livello, posti_max: formGen.posti_max,
+              posti_occupati: 0, stato: 'disponibile', creato_da: adminId,
               note: formGen.note || null,
             })
           }
         }
         dataCorrente = addDays(dataCorrente, 1)
       }
-
-      if (nuoviSlots.length === 0) {
-        toast.error('Nessuno slot generato: controlla i giorni selezionati nel range di date')
-        return
-      }
-
+      if (nuoviSlots.length === 0) { toast.error('Nessuno slot generato: controlla i giorni selezionati nel range di date'); return }
       const { data, error } = await supabase.from('slot').insert(nuoviSlots).select()
       if (error) throw error
-
       setSlots(prev => [...prev, ...(data || [])])
       toast.success(`${nuoviSlots.length} slot generati con successo!`)
       setShowGeneratore(false)
@@ -261,12 +243,13 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2 space-y-4">
+
         {/* Calendario */}
         <div className="card">
           <div className="flex items-center justify-between mb-4">
-            <button onClick={() => setMeseCorrente(m => subMonths(m, 1))} className="btn-secondary px-2 py-1 text-xs">‹</button>
+            <button onClick={() => setMeseCorrente(m => subMonths(m, 1))} className="btn-secondary px-3 py-1.5 text-sm">‹</button>
             <span className="font-medium text-sm capitalize">{format(meseCorrente, 'MMMM yyyy', { locale: it })}</span>
-            <button onClick={() => setMeseCorrente(m => addMonths(m, 1))} className="btn-secondary px-2 py-1 text-xs">›</button>
+            <button onClick={() => setMeseCorrente(m => addMonths(m, 1))} className="btn-secondary px-3 py-1.5 text-sm">›</button>
           </div>
           <div className="grid grid-cols-7 gap-1">
             {DOW.map(d => <div key={d} className="text-center text-xs text-gray-400 font-medium py-1">{d}</div>)}
@@ -305,13 +288,21 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
 
         {/* Slot del giorno */}
         <div className="card">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-medium text-sm capitalize">{formatGiornoCompleto(giornoSelezionato)}</h2>
-            <div className="flex gap-2">
-              <button onClick={apriGeneratore} className="btn-secondary text-xs px-3 py-1.5">⚡ Genera multipli</button>
-              <button onClick={apriFormNuovo} className="btn-primary text-xs px-3 py-1.5">+ Nuovo slot</button>
+          {/* Header: titolo + bottoni su righe separate su mobile */}
+          <div className="mb-4">
+            <h2 className="font-medium text-sm capitalize mb-3">{formatGiornoCompleto(giornoSelezionato)}</h2>
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={apriGeneratore}
+                className="btn-secondary text-xs px-3 py-2.5 flex items-center justify-center gap-1.5">
+                <span>⚡</span> Genera multipli
+              </button>
+              <button onClick={apriFormNuovo}
+                className="btn-primary text-xs px-3 py-2.5 flex items-center justify-center gap-1.5">
+                <span>+</span> Nuovo slot
+              </button>
             </div>
           </div>
+
           {slotsDelGiorno.length === 0 ? (
             <p className="text-center text-gray-400 text-sm py-6">Nessuno slot per questo giorno</p>
           ) : (
@@ -319,25 +310,44 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
               {slotsDelGiorno.map(slot => (
                 <div key={slot.id}
                   onClick={() => apriDettaglio(slot)}
-                  className={cn('flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors',
+                  className={cn(
+                    'p-3 rounded-lg border cursor-pointer transition-colors',
                     showDettaglio?.id === slot.id ? 'border-brand-200 bg-brand-50' : 'border-gray-100 hover:bg-gray-50'
                   )}>
-                  <span className="text-sm font-medium min-w-[100px]">
-                    {formatOra(slot.ora_inizio)}–{formatOra(slot.ora_fine)}
-                  </span>
-                  <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', LIVELLO_COLORE[slot.livello])}>
-                    {LIVELLO_LABEL[slot.livello]}
-                  </span>
-                  <div className="flex gap-1 ml-auto">
-                    {Array.from({ length: slot.posti_max }).map((_, i) => (
-                      <span key={i} className={cn('w-2.5 h-2.5 rounded-sm',
-                        i < slot.posti_occupati ? 'bg-brand-600' : 'bg-green-200')} />
-                    ))}
+                  {/* Riga superiore: orario + badge livello */}
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold">
+                      {formatOra(slot.ora_inizio)}–{formatOra(slot.ora_fine)}
+                    </span>
+                    <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', LIVELLO_COLORE[slot.livello])}>
+                      {LIVELLO_LABEL[slot.livello]}
+                    </span>
                   </div>
-                  <span className="text-xs text-gray-500">{slot.posti_occupati}/{slot.posti_max}</span>
-                  <div className="flex gap-1" onClick={e => e.stopPropagation()}>
-                    <button onClick={() => apriFormModifica(slot)} className="p-1 text-gray-400 hover:text-gray-700 rounded">✎</button>
-                    <button onClick={() => eliminaSlot(slot)} className="p-1 text-gray-400 hover:text-red-600 rounded">✕</button>
+                  {/* Riga inferiore: posti + azioni */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="flex gap-0.5">
+                        {Array.from({ length: slot.posti_max }).map((_, i) => (
+                          <span key={i} className={cn('w-3 h-3 rounded-sm',
+                            i < slot.posti_occupati ? 'bg-brand-600' : 'bg-green-200')} />
+                        ))}
+                      </div>
+                      <span className="text-xs text-gray-500">{slot.posti_occupati}/{slot.posti_max}</span>
+                    </div>
+                    <div className="flex gap-1" onClick={e => e.stopPropagation()}>
+                      <button
+                        onClick={() => apriFormModifica(slot)}
+                        className="p-1.5 text-gray-400 hover:text-gray-700 rounded hover:bg-gray-100 transition-colors"
+                        title="Modifica">
+                        ✎
+                      </button>
+                      <button
+                        onClick={() => eliminaSlot(slot)}
+                        className="p-1.5 text-gray-400 hover:text-red-600 rounded hover:bg-red-50 transition-colors"
+                        title="Elimina">
+                        ✕
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -346,16 +356,14 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
         </div>
       </div>
 
-      {/* Colonna destra */}
-      <div className="space-y-4">
+      {/* Colonna destra (form / dettaglio) */}
+      <div className="space-y-4" id="pannello-laterale">
 
         {/* Form genera slot multipli */}
         {showGeneratore && (
           <div className="card">
             <h3 className="font-medium text-sm mb-4">⚡ Genera slot multipli</h3>
             <div className="space-y-4">
-
-              {/* Range date */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="label">Data inizio</label>
@@ -369,7 +377,6 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
                 </div>
               </div>
 
-              {/* Giorni della settimana */}
               <div>
                 <label className="label">Giorni della settimana</label>
                 <div className="flex flex-wrap gap-1.5 mt-1">
@@ -387,7 +394,6 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
                 </div>
               </div>
 
-              {/* Orari */}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="label mb-0">Orari</label>
@@ -415,7 +421,6 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
                 </div>
               </div>
 
-              {/* Livello e posti */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="label">Livello</label>
@@ -433,14 +438,12 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
                 </div>
               </div>
 
-              {/* Note */}
               <div>
                 <label className="label">Note (opzionale)</label>
                 <input type="text" className="input" value={formGen.note}
                   onChange={e => setFormGen(f => ({ ...f, note: e.target.value }))} />
               </div>
 
-              {/* Anteprima conteggio */}
               {formGen.data_inizio && formGen.data_fine && formGen.giorni.length > 0 && (() => {
                 let count = 0
                 let d = new Date(formGen.data_inizio)
@@ -501,7 +504,7 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
           </div>
         )}
 
-        {/* Dettaglio slot con elenco prenotati */}
+        {/* Dettaglio slot */}
         {showDettaglio && !showForm && !showGeneratore && (
           <div className="card">
             <div className="flex items-start justify-between mb-4 pb-3 border-b border-gray-100">
@@ -525,7 +528,7 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
               <p className="text-sm text-gray-400 py-4 text-center">Nessuna prenotazione</p>
             )}
             {!loadingDettaglio && prenotazioniDettaglio.length > 0 && (
-              <div className="space-y-0 divide-y divide-gray-50">
+              <div className="divide-y divide-gray-50">
                 {prenotazioniDettaglio.map((p: any) => (
                   <div key={p.id} className="flex items-center gap-3 py-3">
                     <div className="w-8 h-8 rounded-full bg-brand-50 flex items-center justify-center text-brand-800 text-xs font-medium flex-shrink-0">
@@ -539,16 +542,12 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
                       )}
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
-                      <button
-                        onClick={() => aggiornaPresenza(p.id, 'presente')}
-                        title="Presente"
+                      <button onClick={() => aggiornaPresenza(p.id, 'presente')} title="Presente"
                         className={cn('px-2 py-1 rounded text-xs font-medium border transition-colors',
                           p.stato === 'presente' ? 'bg-green-100 border-green-300 text-green-800' : 'border-gray-200 text-gray-400 hover:bg-green-50')}>
                         ✓
                       </button>
-                      <button
-                        onClick={() => aggiornaPresenza(p.id, 'assente')}
-                        title="Assente"
+                      <button onClick={() => aggiornaPresenza(p.id, 'assente')} title="Assente"
                         className={cn('px-2 py-1 rounded text-xs font-medium border transition-colors',
                           p.stato === 'assente' ? 'bg-red-100 border-red-300 text-red-800' : 'border-gray-200 text-gray-400 hover:bg-red-50')}>
                         ✗
@@ -567,4 +566,3 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
     </div>
   )
 }
-
