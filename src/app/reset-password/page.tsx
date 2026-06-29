@@ -9,44 +9,21 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false)
   const [pronto, setPronto] = useState(false)
   const [fatto, setFatto] = useState(false)
-  const [erroreLink, setErroreLink] = useState(false)
   const supabase = createClient()
 
   useEffect(() => {
-    // Supabase manda il token come hash nell'URL: #access_token=...&type=recovery
-    const hash = window.location.hash
-    if (hash && hash.includes('access_token') && hash.includes('type=recovery')) {
-      // Estrai i parametri dall'hash
-      const params = new URLSearchParams(hash.substring(1))
-      const accessToken = params.get('access_token')
-      const refreshToken = params.get('refresh_token') || ''
-      if (accessToken) {
-        // Imposta la sessione manualmente con il token dell'email
-        supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
-          .then(({ error }) => {
-            if (error) {
-              setErroreLink(true)
-            } else {
-              setPronto(true)
-            }
-          })
+    // La sessione è già stata impostata dalla API route /api/auth/confirm
+    // Verifichiamo solo che esista una sessione valida
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setPronto(true)
       } else {
-        setErroreLink(true)
+        // Nessuna sessione: link scaduto o non valido
+        setPronto(false)
+        toast.error('Link scaduto o non valido. Richiedi un nuovo link.')
+        setTimeout(() => { window.location.href = '/login' }, 3000)
       }
-    } else {
-      // Prova anche con query params (alcune versioni di Supabase)
-      const params = new URLSearchParams(window.location.search)
-      const code = params.get('code')
-      if (code) {
-        supabase.auth.exchangeCodeForSession(code)
-          .then(({ error }) => {
-            if (error) setErroreLink(true)
-            else setPronto(true)
-          })
-      } else {
-        setErroreLink(true)
-      }
-    }
+    })
   }, [])
 
   async function handleReset() {
@@ -87,28 +64,10 @@ export default function ResetPasswordPage() {
           <p className="text-sm text-gray-500 mt-1">Nuova password</p>
         </div>
 
-        {/* Attesa token */}
-        {!pronto && !fatto && !erroreLink && (
+        {/* Attesa verifica sessione */}
+        {!pronto && !fatto && (
           <div className="card shadow-sm text-center py-6">
-            <p className="text-sm text-gray-500">Verifica del link in corso...</p>
-          </div>
-        )}
-
-        {/* Link non valido */}
-        {erroreLink && (
-          <div className="card shadow-sm text-center space-y-4">
-            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto text-red-500 text-xl">
-              !
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-800">Link non valido o scaduto</p>
-              <p className="text-sm text-gray-500 mt-1">Richiedi un nuovo link dalla pagina di login.</p>
-            </div>
-            <button
-              onClick={() => { window.location.href = '/login' }}
-              className="btn-primary w-full">
-              Torna al login
-            </button>
+            <p className="text-sm text-gray-500">Verifica in corso...</p>
           </div>
         )}
 
