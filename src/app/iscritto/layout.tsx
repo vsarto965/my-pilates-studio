@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { format } from 'date-fns'
 
 export default async function IscrittoLayout({ children }: { children: React.ReactNode }) {
   const supabase = createServerSupabaseClient()
@@ -8,11 +9,24 @@ export default async function IscrittoLayout({ children }: { children: React.Rea
 
   const { data: iscritto } = await supabase
     .from('iscritto')
-    .select('id, nome, cognome')
+    .select('id, nome, cognome, stato')
     .eq('auth_user_id', user.id)
     .single()
 
   if (!iscritto) redirect('/login')
+
+  // Avvisi attualmente nel loro periodo di validità (solo per iscritti attivi)
+  const oggi = format(new Date(), 'yyyy-MM-dd')
+  let avvisi: { id: string; testo: string }[] = []
+  if (iscritto.stato === 'attivo') {
+    const { data } = await supabase
+      .from('avviso')
+      .select('*')
+      .lte('data_inizio', oggi)
+      .gte('data_fine', oggi)
+      .order('data_inizio')
+    avvisi = data || []
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -28,7 +42,19 @@ export default async function IscrittoLayout({ children }: { children: React.Rea
           </div>
         </div>
       </nav>
-      <main className="max-w-2xl mx-auto px-4 py-6">{children}</main>
+      <main className="max-w-2xl mx-auto px-4 py-6">
+        {avvisi && avvisi.length > 0 && (
+          <div className="space-y-2 mb-4">
+            {avvisi.map(a => (
+              <div key={a.id} className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-900 flex items-start gap-2">
+                <span className="flex-shrink-0">📢</span>
+                <span>{a.testo}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {children}
+      </main>
     </div>
   )
 }

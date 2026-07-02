@@ -58,6 +58,16 @@ export interface Slot {
   prenotazioni?: Prenotazione[]
 }
 
+export interface Avviso {
+  id: string
+  testo: string
+  data_inizio: string
+  data_fine: string
+  creato_da?: string
+  created_at: string
+}
+
+
 export interface Prenotazione {
   id: string
   iscritto_id: string
@@ -156,6 +166,12 @@ export interface FormSlot {
   note?: string
 }
 
+export interface FormAvviso {
+  testo: string
+  data_inizio: string
+  data_fine: string
+}
+
 // Database type per Supabase (semplificato)
 export interface Database {
   public: {
@@ -168,6 +184,7 @@ export interface Database {
       fattura: { Row: Fattura; Insert: Omit<Fattura, 'id' | 'created_at'>; Update: Partial<Fattura> }
       consensi_log: { Row: ConsensoLog; Insert: Omit<ConsensoLog, 'id' | 'registrato_at'>; Update: Partial<ConsensoLog> }
       configurazione: { Row: Configurazione; Insert: Partial<Configurazione>; Update: Partial<Configurazione> }
+      avviso: { Row: Avviso; Insert: Omit<Avviso, 'id' | 'created_at'>; Update: Partial<Avviso> }
     }
   }
 }

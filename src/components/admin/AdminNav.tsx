@@ -9,6 +9,7 @@ const NAV = [
   { href: '/admin/tesserini', label: 'Iscritti' },
   { href: '/admin/listino', label: 'Listino' },
   { href: '/admin/fatture', label: 'Fatture' },
+  { href: '/admin/avviso', label: 'Avvisi' },
 ]
 
 export default function AdminNav({ email }: { email: string }) {
@@ -23,9 +24,9 @@ export default function AdminNav({ email }: { email: string }) {
 
   return (
     <nav className="bg-white border-b border-gray-100">
-      <div className="max-w-6xl mx-auto px-4 flex items-center justify-between h-14">
+      <div className="max-w-6xl mx-auto px-4 flex items-center justify-between h-14 overflow-x-auto">
         <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <div className="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center text-white text-xs font-semibold">M</div>
             <span className="font-medium text-sm">My Pilates Studio</span>
           </div>
@@ -33,7 +34,7 @@ export default function AdminNav({ email }: { email: string }) {
             {NAV.map(n => (
               <Link key={n.href} href={n.href}
                 className={cn(
-                  'px-3 py-1.5 rounded-md text-sm transition-colors',
+                  'px-3 py-1.5 rounded-md text-sm transition-colors whitespace-nowrap flex-shrink-0',
                   pathname.startsWith(n.href)
                     ? 'bg-brand-50 text-brand-800 font-medium'
                     : 'text-gray-600 hover:bg-gray-50'
