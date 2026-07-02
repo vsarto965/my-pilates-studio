@@ -367,6 +367,9 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
                       {LIVELLO_LABEL[slot.livello]}
                     </span>
                   </div>
+                  {slot.note && (
+                    <div className="text-xs text-gray-500 mb-2 italic">📝 {slot.note}</div>
+                  )}
                   {/* Riga inferiore: posti + azioni */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -564,6 +567,9 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
                 <div className="text-xs text-gray-500">posti occupati</div>
               </div>
             </div>
+            {showDettaglio.note && (
+              <div className="text-xs text-gray-500 italic mb-3 pb-3 border-b border-gray-100">📝 {showDettaglio.note}</div>
+            )}
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-xs font-medium text-gray-500 uppercase">Iscritti prenotati</h4>
               {loadingDettaglio && <span className="text-xs text-gray-400">Caricamento...</span>}

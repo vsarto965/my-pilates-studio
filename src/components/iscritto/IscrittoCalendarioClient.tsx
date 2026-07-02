@@ -357,6 +357,9 @@ export default function IscrittoCalendarioClient({ iscritto, tesserino: tessInit
                     {pieno && <span className="text-xs text-red-600 ml-auto">Pieno</span>}
                     {!prenotato && !pieno && <span className="text-xs text-gray-500 ml-auto">{slot.posti_max - slot.posti_occupati} post{slot.posti_max - slot.posti_occupati === 1 ? 'o' : 'i'} liberi</span>}
                   </div>
+                  {slot.note && (
+                    <div className="text-xs text-gray-500 mb-2 italic">📝 {slot.note}</div>
+                  )}
                   <div className="flex items-center gap-2">
                     <div className="flex gap-1">
                       {Array.from({ length: slot.posti_max }).map((_, i) => (
