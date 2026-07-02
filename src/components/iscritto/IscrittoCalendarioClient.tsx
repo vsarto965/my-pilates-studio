@@ -61,6 +61,22 @@ export default function IscrittoCalendarioClient({ iscritto, tesserino: tessInit
           for (const s of data || []) mappa.set(s.id, s)
           return Array.from(mappa.values())
         })
+
+        // Carica anche le prenotazioni confermate di questo iscritto in quel mese
+        // (la query iniziale della pagina prende solo quelle future)
+        const { data: prenMese, error: errPren } = await supabase
+          .from('prenotazione')
+          .select('*, slot:slot(*)')
+          .eq('iscritto_id', iscritto.id)
+          .eq('stato', 'confermata')
+          .gte('slot.data', inizioMese)
+          .lte('slot.data', fineMese)
+        if (errPren) throw errPren
+        setPrenotazioni(prev => {
+          const mappa = new Map(prev.map(p => [p.id, p]))
+          for (const p of prenMese || []) if (p.slot) mappa.set(p.id, p)
+          return Array.from(mappa.values())
+        })
       } catch {
         toast.error('Errore caricamento slot del mese')
       } finally {
@@ -286,15 +302,14 @@ export default function IscrittoCalendarioClient({ iscritto, tesserino: tessInit
             const isPast = dataStr < oggiStr
             return (
               <button key={d}
-                onClick={() => !isPast && setGiornoSel(dataStr)}
-                disabled={isPast && dataStr !== oggiStr}
+                onClick={() => setGiornoSel(dataStr)}
                 className={cn('relative flex flex-col items-center py-1 rounded-lg text-sm transition-colors border',
                   isPast ? 'text-gray-300 border-transparent cursor-default' :
                   isSel ? 'bg-brand-50 border-brand-200 text-brand-800 font-medium' :
                   isOggi ? 'border-blue-200 text-blue-700' : 'border-transparent hover:bg-gray-50 text-gray-700'
                 )}>
                 {d}
-                {status && !isPast && (
+                {status && (
                   <span className={cn('w-1.5 h-1.5 rounded-full mt-0.5',
                     status === 'prenotato' ? 'bg-brand-600' :
                     status === 'libero' ? 'bg-green-500' :
@@ -317,6 +332,9 @@ export default function IscrittoCalendarioClient({ iscritto, tesserino: tessInit
       {/* Slot del giorno */}
       <div className="card">
         <h2 className="font-medium text-sm capitalize mb-3">{formatGiornoCompleto(giornoSel)}</h2>
+        {giornoSel < oggiStr && (
+          <p className="text-xs text-gray-400 mb-3">Giorno passato — solo consultazione, nessuna azione disponibile</p>
+        )}
         {slotsGiorno.length === 0 ? (
           <p className="text-center text-gray-400 text-sm py-6">Nessuno slot disponibile</p>
         ) : (
@@ -325,6 +343,7 @@ export default function IscrittoCalendarioClient({ iscritto, tesserino: tessInit
               const prenotato = isPrenotato(slot)
               const pieno = !prenotato && slot.posti_occupati >= slot.posti_max
               const pren = getPrenotazione(slot)
+              const passato = slot.data < oggiStr
               return (
                 <div key={slot.id} className={cn('p-3 rounded-lg border transition-colors',
                   prenotato ? 'border-green-200 bg-green-50' :
@@ -345,21 +364,21 @@ export default function IscrittoCalendarioClient({ iscritto, tesserino: tessInit
                           i < slot.posti_occupati ? (prenotato && i === slot.posti_occupati - 1 ? 'bg-brand-600' : 'bg-red-300') : 'bg-green-200')} />
                       ))}
                     </div>
-                    {prenotato && pren && (
+                    {!passato && prenotato && pren && (
                       <button
                         onClick={() => setConferma({ slot, tipo: 'cancella', prenotazioneId: pren.id })}
                         className="ml-auto btn-danger text-xs px-3 py-1">
                         Cancella
                       </button>
                     )}
-                    {!prenotato && !pieno && tesserino && (
+                    {!passato && !prenotato && !pieno && tesserino && (
                       <button
                         onClick={() => setConferma({ slot, tipo: 'prenota' })}
                         className="ml-auto btn-primary text-xs px-3 py-1">
                         Prenota
                       </button>
                     )}
-                    {!prenotato && !pieno && !tesserino && (
+                    {!passato && !prenotato && !pieno && !tesserino && (
                       <span className="ml-auto text-xs text-gray-400">Nessun tesserino attivo</span>
                     )}
                   </div>
