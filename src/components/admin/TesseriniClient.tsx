@@ -1,12 +1,25 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
-import { Iscritto, Tesserino, Listino, Livello, TipoConsenso, FormRegistrazione } from '@/types'
-import { formatDataBreve, formatEuro, iniziali, validaCF, LIVELLO_LABEL, LIVELLO_COLORE, STATO_TESSERINO_LABEL, STATO_TESSERINO_COLORE, cn } from '@/lib/utils'
+import { Iscritto, Tesserino, Listino, Livello, TipoConsenso, FormRegistrazione, Prenotazione } from '@/types'
+import { formatDataBreve, formatOra, formatEuro, iniziali, validaCF, LIVELLO_LABEL, LIVELLO_COLORE, STATO_TESSERINO_LABEL, STATO_TESSERINO_COLORE, cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
 interface IscrittoConTesserini extends Iscritto { tesserini: Tesserino[] }
 interface Props { iscrittiIniziali: IscrittoConTesserini[]; listino: Listino[] }
+
+const STATO_PREN_LABEL: Record<string, string> = {
+  confermata: 'Confermata',
+  cancellata: 'Cancellata',
+  presente: 'Presente',
+  assente: 'Assente',
+}
+const STATO_PREN_COLORE: Record<string, string> = {
+  confermata: 'bg-blue-100 text-blue-800',
+  cancellata: 'bg-gray-100 text-gray-500',
+  presente: 'bg-green-100 text-green-800',
+  assente: 'bg-red-100 text-red-800',
+}
 
 const CONSENSI: { id: TipoConsenso; label: string; desc: string; obbligatorio: boolean }[] = [
   { id: 'contratto', label: 'Finalità contrattuali', desc: 'Gestione iscrizione, tesserino, prenotazioni e presenze (art. 6.1.b GDPR)', obbligatorio: true },
@@ -36,7 +49,34 @@ export default function TesseriniClient({ iscrittiIniziali, listino }: Props) {
   const [step, setStep] = useState(0)
   const [loading, setLoading] = useState(false)
   const [iscrittoDettaglio, setIscrittoDettaglio] = useState<IscrittoConTesserini | null>(null)
+  const [storicoPrenotazioni, setStoricoPrenotazioni] = useState<Prenotazione[]>([])
+  const [loadingStorico, setLoadingStorico] = useState(false)
   const supabase = createClient()
+
+  // Ogni volta che si apre il dettaglio di un iscritto, carica tutte le sue
+  // prenotazioni (comprese quelle cancellate) per poterle consultare come storico
+  useEffect(() => {
+    if (!iscrittoDettaglio) { setStoricoPrenotazioni([]); return }
+    let attivo = true
+    async function caricaStorico() {
+      setLoadingStorico(true)
+      try {
+        const { data, error } = await supabase
+          .from('prenotazione')
+          .select('*, slot:slot(*)')
+          .eq('iscritto_id', iscrittoDettaglio!.id)
+          .order('prenotata_at', { ascending: false })
+        if (error) throw error
+        if (attivo) setStoricoPrenotazioni(data || [])
+      } catch {
+        if (attivo) toast.error('Errore caricamento storico prenotazioni')
+      } finally {
+        if (attivo) setLoadingStorico(false)
+      }
+    }
+    caricaStorico()
+    return () => { attivo = false }
+  }, [iscrittoDettaglio?.id])
 
   const [formModifica, setFormModifica] = useState<FormModifica>({
     nome: '', cognome: '', codice_fiscale: '', email: '', data_nascita: '', telefono: '',
@@ -505,6 +545,39 @@ export default function TesseriniClient({ iscrittiIniziali, listino }: Props) {
               ))}
             </div>
             <button onClick={() => rinnova(iscrittoDettaglio)} className="btn-secondary w-full text-sm">↺ Rinnova tesserino</button>
+
+            {/* Storico prenotazioni */}
+            <div className="pt-2 border-t border-gray-100">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs font-medium text-gray-500 uppercase">Storico prenotazioni</div>
+                {loadingStorico && <span className="text-xs text-gray-400">Caricamento...</span>}
+              </div>
+              {!loadingStorico && storicoPrenotazioni.length === 0 && (
+                <p className="text-sm text-gray-400 py-3 text-center">Nessuna prenotazione</p>
+              )}
+              {!loadingStorico && storicoPrenotazioni.length > 0 && (
+                <div className="space-y-1.5 max-h-72 overflow-y-auto">
+                  {storicoPrenotazioni.map(p => {
+                    const s = p.slot as any
+                    return (
+                      <div key={p.id} className="flex items-center justify-between text-sm py-1.5 border-b border-gray-50 last:border-0">
+                        <div className="min-w-0">
+                          <div className="font-medium">{s ? formatDataBreve(s.data) : '—'} {s ? `· ${formatOra(s.ora_inizio)}` : ''}</div>
+                          {p.stato === 'cancellata' && (
+                            <div className="text-xs text-gray-400">
+                              {p.lezione_restituita ? 'Cancellata in tempo — lezione restituita' : 'Cancellata tardi — lezione NON restituita'}
+                            </div>
+                          )}
+                        </div>
+                        <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0', STATO_PREN_COLORE[p.stato])}>
+                          {STATO_PREN_LABEL[p.stato]}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
