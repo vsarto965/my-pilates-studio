@@ -23,33 +23,31 @@ export default function AdminNav({ email }: { email: string }) {
   }
 
   return (
-    <nav className="bg-white border-b border-gray-100">
-      <div className="max-w-6xl mx-auto px-4 flex items-center justify-between h-14 overflow-x-auto">
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <div className="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center text-white text-xs font-semibold">M</div>
-            <span className="font-medium text-sm">My Pilates Studio</span>
-          </div>
-          <div className="flex gap-1">
-            {NAV.map(n => (
-              <Link key={n.href} href={n.href}
-                className={cn(
-                  'px-3 py-1.5 rounded-md text-sm transition-colors whitespace-nowrap flex-shrink-0',
-                  pathname.startsWith(n.href)
-                    ? 'bg-brand-50 text-brand-800 font-medium'
-                    : 'text-gray-600 hover:bg-gray-50'
-                )}>
-                {n.label}
-              </Link>
-            ))}
-          </div>
+    <nav className="bg-white border-b border-gray-100 sticky top-0 z-10">
+      <div className="max-w-6xl mx-auto px-4 flex items-center justify-between h-14">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">M</div>
+          <span className="font-medium text-sm">My Pilates Studio</span>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-shrink-0">
           <span className="text-xs bg-brand-50 text-brand-800 px-2 py-0.5 rounded-full font-medium">Admin</span>
           <button onClick={logout} className="text-xs text-gray-500 hover:text-gray-800 transition-colors">
             Esci
           </button>
         </div>
+      </div>
+      <div className="max-w-6xl mx-auto px-4 flex gap-1 overflow-x-auto pb-2 -mt-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {NAV.map(n => (
+          <Link key={n.href} href={n.href}
+            className={cn(
+              'px-3 py-1.5 rounded-md text-sm transition-colors whitespace-nowrap flex-shrink-0',
+              pathname.startsWith(n.href)
+                ? 'bg-brand-50 text-brand-800 font-medium'
+                : 'text-gray-600 hover:bg-gray-50'
+            )}>
+            {n.label}
+          </Link>
+        ))}
       </div>
     </nav>
   )
