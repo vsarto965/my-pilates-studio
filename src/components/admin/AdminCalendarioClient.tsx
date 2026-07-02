@@ -1,9 +1,9 @@
 'use client'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Slot, FormSlot, Livello } from '@/types'
 import { formatData, formatGiornoCompleto, formatOra, LIVELLO_LABEL, LIVELLO_COLORE, cn } from '@/lib/utils'
-import { format, addMonths, subMonths, startOfMonth, getDaysInMonth, addDays } from 'date-fns'
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, getDaysInMonth, addDays } from 'date-fns'
 import { it } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 
@@ -36,6 +36,12 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
   const [prenotazioniDettaglio, setPrenotazioniDettaglio] = useState<any[]>([])
   const [loadingDettaglio, setLoadingDettaglio] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [loadingMese, setLoadingMese] = useState(false)
+  // Tiene traccia dei mesi già scaricati dal database (formato 'yyyy-MM'), per non richiederli ogni volta
+  const mesiCaricatiRef = useRef<Set<string>>(new Set([
+    format(new Date(), 'yyyy-MM'),
+    format(addMonths(new Date(), 1), 'yyyy-MM'),
+  ]))
   const [form, setForm] = useState<FormSlot>({
     data: format(new Date(), 'yyyy-MM-dd'),
     ora_inizio: '09:00',
@@ -56,6 +62,41 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
 
   const supabase = createClient()
   const slotsDelGiorno = slots.filter(s => s.data === giornoSelezionato)
+
+  // Ogni volta che l'admin cambia mese nel calendario, se quel mese non è ancora stato
+  // scaricato dal database, lo richiede e aggiunge gli slot a quelli già in memoria.
+  useEffect(() => {
+    const chiaveMese = format(meseCorrente, 'yyyy-MM')
+    if (mesiCaricatiRef.current.has(chiaveMese)) return
+    mesiCaricatiRef.current.add(chiaveMese)
+
+    async function caricaSlotDelMese() {
+      setLoadingMese(true)
+      try {
+        const inizioMese = format(startOfMonth(meseCorrente), 'yyyy-MM-dd')
+        const fineMese = format(endOfMonth(meseCorrente), 'yyyy-MM-dd')
+        const { data, error } = await supabase
+          .from('slot')
+          .select(`*, prenotazioni:prenotazione(id, stato, iscritto:iscritto(id, nome, cognome, email))`)
+          .gte('data', inizioMese)
+          .lte('data', fineMese)
+          .neq('stato', 'cancellato')
+          .order('data')
+          .order('ora_inizio')
+        if (error) throw error
+        setSlots(prev => {
+          const mappa = new Map(prev.map(s => [s.id, s]))
+          for (const s of data || []) mappa.set(s.id, s)
+          return Array.from(mappa.values())
+        })
+      } catch {
+        toast.error('Errore caricamento slot del mese')
+      } finally {
+        setLoadingMese(false)
+      }
+    }
+    caricaSlotDelMese()
+  }, [meseCorrente])
 
   const statusGiorno = useCallback((dataStr: string) => {
     const ss = slots.filter(s => s.data === dataStr)
@@ -248,7 +289,10 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <button onClick={() => setMeseCorrente(m => subMonths(m, 1))} className="btn-secondary px-3 py-1.5 text-sm">‹</button>
-            <span className="font-medium text-sm capitalize">{format(meseCorrente, 'MMMM yyyy', { locale: it })}</span>
+            <span className="font-medium text-sm capitalize">
+              {format(meseCorrente, 'MMMM yyyy', { locale: it })}
+              {loadingMese && <span className="text-gray-400 font-normal"> · caricamento...</span>}
+            </span>
             <button onClick={() => setMeseCorrente(m => addMonths(m, 1))} className="btn-secondary px-3 py-1.5 text-sm">›</button>
           </div>
           <div className="grid grid-cols-7 gap-1">

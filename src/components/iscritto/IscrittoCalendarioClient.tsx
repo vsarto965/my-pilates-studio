@@ -1,9 +1,9 @@
 'use client'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Iscritto, Tesserino, Slot, Prenotazione } from '@/types'
 import { formatGiornoCompleto, formatOra, formatDataBreve, formatEuro, LIVELLO_LABEL, LIVELLO_COLORE, STATO_TESSERINO_COLORE, puoCancellareConRestituzione, cn } from '@/lib/utils'
-import { format, addMonths, subMonths, startOfMonth, getDaysInMonth, getDay } from 'date-fns'
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, getDaysInMonth, getDay } from 'date-fns'
 import { it } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 
@@ -17,15 +17,58 @@ interface Props {
 const DOW = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab']
 const ORE_CANCELLAZIONE = 24
 
-export default function IscrittoCalendarioClient({ iscritto, tesserino: tessInit, slotsDisponibili, prenotazioniAttive: prenInit }: Props) {
+export default function IscrittoCalendarioClient({ iscritto, tesserino: tessInit, slotsDisponibili: slotsIniziali, prenotazioniAttive: prenInit }: Props) {
   const [tesserino, setTesserino] = useState(tessInit)
   const [prenotazioni, setPrenotazioni] = useState<Prenotazione[]>(prenInit)
+  const [slotsDisponibili, setSlotsDisponibili] = useState<Slot[]>(slotsIniziali)
   const [meseCorrente, setMeseCorrente] = useState(new Date())
   const [giornoSel, setGiornoSel] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [showPrenotazioni, setShowPrenotazioni] = useState(false)
   const [conferma, setConferma] = useState<{ slot: Slot; tipo: 'prenota' | 'cancella'; prenotazioneId?: string } | null>(null)
   const [loading, setLoading] = useState(false)
+  const [loadingMese, setLoadingMese] = useState(false)
   const supabase = createClient()
+
+  // La pagina carica inizialmente solo i prossimi 60 giorni: qui teniamo traccia
+  // di quali mesi sono già stati scaricati, per richiedere gli altri quando l'iscritto
+  // naviga il calendario con le freccette ‹ ›
+  const mesiCaricatiRef = useRef<Set<string>>(new Set([
+    format(new Date(), 'yyyy-MM'),
+    format(addMonths(new Date(), 1), 'yyyy-MM'),
+    format(addMonths(new Date(), 2), 'yyyy-MM'),
+  ]))
+
+  useEffect(() => {
+    const chiaveMese = format(meseCorrente, 'yyyy-MM')
+    if (mesiCaricatiRef.current.has(chiaveMese)) return
+    mesiCaricatiRef.current.add(chiaveMese)
+
+    async function caricaSlotDelMese() {
+      setLoadingMese(true)
+      try {
+        const inizioMese = format(startOfMonth(meseCorrente), 'yyyy-MM-dd')
+        const fineMese = format(endOfMonth(meseCorrente), 'yyyy-MM-dd')
+        const { data, error } = await supabase
+          .from('slot')
+          .select('*')
+          .gte('data', inizioMese)
+          .lte('data', fineMese)
+          .eq('stato', 'disponibile')
+          .order('data').order('ora_inizio')
+        if (error) throw error
+        setSlotsDisponibili(prev => {
+          const mappa = new Map(prev.map(s => [s.id, s]))
+          for (const s of data || []) mappa.set(s.id, s)
+          return Array.from(mappa.values())
+        })
+      } catch {
+        toast.error('Errore caricamento slot del mese')
+      } finally {
+        setLoadingMese(false)
+      }
+    }
+    caricaSlotDelMese()
+  }, [meseCorrente])
 
   const slotIds = new Set(slotsDisponibili.map(s => s.id))
   const prenSlotIds = new Set(prenotazioni.map(p => (p.slot as any)?.id || p.slot_id))
@@ -225,7 +268,10 @@ export default function IscrittoCalendarioClient({ iscritto, tesserino: tessInit
       <div className="card">
         <div className="flex items-center justify-between mb-4">
           <button onClick={() => setMeseCorrente(m => subMonths(m, 1))} className="btn-secondary px-2 py-1 text-xs">‹</button>
-          <span className="font-medium text-sm capitalize">{format(meseCorrente, 'MMMM yyyy', { locale: it })}</span>
+          <span className="font-medium text-sm capitalize">
+            {format(meseCorrente, 'MMMM yyyy', { locale: it })}
+            {loadingMese && <span className="text-gray-400 font-normal"> · caricamento...</span>}
+          </span>
           <button onClick={() => setMeseCorrente(m => addMonths(m, 1))} className="btn-secondary px-2 py-1 text-xs">›</button>
         </div>
         <div className="grid grid-cols-7 gap-1">
