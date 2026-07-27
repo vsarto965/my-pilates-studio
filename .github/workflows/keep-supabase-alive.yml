@@ -2,13 +2,24 @@ name: Keep Supabase Alive
 
 on:
   schedule:
-    - cron: '0 9 * * 1'
-  workflow_dispatch:
+    # Ogni lunedì e giovedì alle 9:00 UTC
+    - cron: '0 9 * * 1,4'
+  workflow_dispatch: {} # permette di lanciarlo manualmente da GitHub
 
 jobs:
   ping-supabase:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Supabase database
+      - name: Ping Supabase admin table
         run: |
-          curl -s -o /dev/null -w "%{http_code}" "https://bafzunxfadlonaegvxfl.supabase.co/rest/v1/admin?select=id&limit=1" -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"
+          response=$(curl -s -o /tmp/response.json -w "%{http_code}" \
+            "https://bafzunxfadlonaegvxfl.supabase.co/rest/v1/admin?select=*&limit=1" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}")
+          echo "HTTP status: $response"
+          cat /tmp/response.json
+          if [ "$response" -ne 200 ]; then
+            echo "Ping fallito con status $response"
+            exit 1
+          fi
+          echo "Ping riuscito ✅"
