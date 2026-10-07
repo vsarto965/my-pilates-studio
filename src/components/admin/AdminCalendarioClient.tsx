@@ -106,6 +106,24 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
     return 'libero'
   }, [slots])
 
+  // Due slot sono in conflitto se iniziano alla stessa ora (es. due slot alle 08:00).
+  // Slot sfalsati di mezz'ora (08:00–09:00 e 08:30–09:30) sono permessi.
+  function siSovrappongono(aInizio: string, _aFine: string, bInizio: string, _bFine: string) {
+    return aInizio.slice(0, 5) === bInizio.slice(0, 5)
+  }
+
+  // Legge dal database tutti gli slot attivi nel periodo indicato (anche mesi non ancora visualizzati)
+  async function slotEsistentiNelPeriodo(dataDa: string, dataA: string) {
+    const { data, error } = await supabase
+      .from('slot')
+      .select('id, data, ora_inizio, ora_fine, livello')
+      .gte('data', dataDa)
+      .lte('data', dataA)
+      .neq('stato', 'cancellato')
+    if (error) throw error
+    return data || []
+  }
+
   async function apriDettaglio(slot: Slot) {
     setShowDettaglio(slot)
     setShowForm(false)
@@ -161,8 +179,16 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
 
   async function salvaSlot() {
     if (!form.data || !form.ora_inizio || !form.ora_fine) return
+    if (form.ora_fine <= form.ora_inizio) { toast.error("L'ora di fine deve essere successiva all'ora di inizio"); return }
     setLoading(true)
     try {
+      const esistenti = await slotEsistentiNelPeriodo(form.data, form.data)
+      const conflitto = esistenti.find(s =>
+        s.id !== editSlot?.id && siSovrappongono(form.ora_inizio, form.ora_fine, s.ora_inizio, s.ora_fine))
+      if (conflitto) {
+        toast.error(`Esiste già uno slot ${formatOra(conflitto.ora_inizio)}–${formatOra(conflitto.ora_fine)} (${LIVELLO_LABEL[conflitto.livello as Livello]}) alla stessa ora`)
+        return
+      }
       if (editSlot) {
         const { data, error } = await supabase.from('slot').update({
           data: form.data, ora_inizio: form.ora_inizio, ora_fine: form.ora_fine,
@@ -193,9 +219,23 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
     if (formGen.orari.length === 0) { toast.error('Inserisci almeno un orario'); return }
     if (formGen.data_inizio < oggiStr) { toast.error('La data di inizio non può essere nel passato'); return }
     if (formGen.data_fine < formGen.data_inizio) { toast.error('La data di fine deve essere successiva alla data di inizio'); return }
+    for (const o of formGen.orari) {
+      if (o.ora_fine <= o.ora_inizio) { toast.error(`Orario ${o.ora_inizio}–${o.ora_fine} non valido: la fine deve essere dopo l'inizio`); return }
+    }
+    for (let i = 0; i < formGen.orari.length; i++) {
+      for (let j = i + 1; j < formGen.orari.length; j++) {
+        const a = formGen.orari[i], b = formGen.orari[j]
+        if (siSovrappongono(a.ora_inizio, a.ora_fine, b.ora_inizio, b.ora_fine)) {
+          toast.error(`Gli orari ${a.ora_inizio}–${a.ora_fine} e ${b.ora_inizio}–${b.ora_fine} iniziano alla stessa ora`)
+          return
+        }
+      }
+    }
 
     setLoading(true)
     try {
+      const esistenti = await slotEsistentiNelPeriodo(formGen.data_inizio, formGen.data_fine)
+      let saltati = 0
       const nuoviSlots: object[] = []
       let dataCorrente = new Date(formGen.data_inizio)
       const dataFine = new Date(formGen.data_fine)
@@ -204,6 +244,9 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
         if (formGen.giorni.includes(dowCorrente)) {
           const dataStr = format(dataCorrente, 'yyyy-MM-dd')
           for (const orario of formGen.orari) {
+            const occupato = esistenti.some(s =>
+              s.data === dataStr && siSovrappongono(orario.ora_inizio, orario.ora_fine, s.ora_inizio, s.ora_fine))
+            if (occupato) { saltati++; continue }
             nuoviSlots.push({
               data: dataStr, ora_inizio: orario.ora_inizio, ora_fine: orario.ora_fine,
               livello: formGen.livello, posti_max: formGen.posti_max,
@@ -214,11 +257,18 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
         }
         dataCorrente = addDays(dataCorrente, 1)
       }
-      if (nuoviSlots.length === 0) { toast.error('Nessuno slot generato: controlla i giorni selezionati nel range di date'); return }
+      if (nuoviSlots.length === 0) {
+        toast.error(saltati > 0
+          ? `Nessuno slot creato: tutti i ${saltati} orari sono già occupati`
+          : 'Nessuno slot generato: controlla i giorni selezionati nel range di date')
+        return
+      }
       const { data, error } = await supabase.from('slot').insert(nuoviSlots).select()
       if (error) throw error
       setSlots(prev => [...prev, ...(data || [])])
-      toast.success(`${nuoviSlots.length} slot generati con successo!`)
+      toast.success(saltati > 0
+        ? `${nuoviSlots.length} slot creati, ${saltati} saltati perché l'orario era già occupato`
+        : `${nuoviSlots.length} slot generati con successo!`, { duration: 6000 })
       setShowGeneratore(false)
     } catch (err: any) {
       toast.error(err.message)
@@ -521,6 +571,7 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
                   <div className="text-xs text-gray-500 bg-gray-50 rounded px-3 py-2">
                     Verranno creati <span className="font-semibold text-gray-700">{totale} slot</span>
                     {' '}({count} {count === 1 ? 'giorno' : 'giorni'} × {formGen.orari.length} {formGen.orari.length === 1 ? 'orario' : 'orari'})
+                    <div className="mt-1 text-gray-400">Gli orari in cui esiste già uno slot alla stessa ora di inizio verranno saltati.</div>
                   </div>
                 ) : null
               })()}
