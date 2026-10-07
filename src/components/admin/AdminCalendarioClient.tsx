@@ -396,6 +396,23 @@ export default function AdminCalendarioClient({ slotsIniziali, adminId }: Props)
                       </button>
                     </div>
                   </div>
+                  {/* Nomi degli iscritti prenotati */}
+                  {(() => {
+                    const prenotati = ((slot as any).prenotazioni || [])
+                      .filter((p: any) => p.stato !== 'cancellata')
+                      .map((p: any) => Array.isArray(p.iscritto) ? p.iscritto[0] : p.iscritto)
+                      .filter(Boolean)
+                    if (prenotati.length === 0) return null
+                    return (
+                      <div className="mt-2 pt-2 border-t border-gray-100 space-y-0.5">
+                        {prenotati.map((i: any) => (
+                          <div key={i.id} className="text-xs text-gray-600">
+                            👤 {i.nome} {i.cognome}
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })()}
                 </div>
               ))}
             </div>
