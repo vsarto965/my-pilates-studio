@@ -1,6 +1,6 @@
 {
-  "name": "My Pilates Studio",
-  "short_name": "Pilates Studio",
+  "name": "My Pilates Lab",
+  "short_name": "Pilates Lab",
   "description": "Gestione corsi e prenotazioni",
   "start_url": "/",
   "display": "standalone",

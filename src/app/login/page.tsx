@@ -58,10 +58,7 @@ export default function LoginPage() {
 
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-12 h-12 rounded-xl bg-brand-600 flex items-center justify-center text-white font-semibold text-lg mb-3">
-            M
-          </div>
-          <h1 className="text-xl font-medium text-gray-900">My Pilates Studio</h1>
+          <img src="/logo.png" alt="My Pilates Lab" className="w-44 h-44 object-contain mb-2" />
           <p className="text-sm text-gray-500 mt-1">
             {vista === 'login' && 'Accedi al tuo account'}
             {vista === 'reset_richiesta' && 'Recupera la password'}

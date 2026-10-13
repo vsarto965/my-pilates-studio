@@ -33,8 +33,8 @@ export default async function IscrittoLayout({ children }: { children: React.Rea
       <nav className="bg-white border-b border-gray-100">
         <div className="max-w-2xl mx-auto px-4 flex items-center justify-between h-14">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center text-white text-xs font-semibold">M</div>
-            <span className="font-medium text-sm">My Pilates Studio</span>
+            <img src="/logo.png" alt="My Pilates Lab" className="w-10 h-10 object-contain flex-shrink-0" />
+            <span className="font-medium text-sm">My Pilates Lab</span>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-gray-600">Ciao, {iscritto.nome}</span>

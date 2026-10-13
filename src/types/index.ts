@@ -1,4 +1,4 @@
-// Tipi principali dell'applicazione My Pilates Studio
+// Tipi principali dell'applicazione My Pilates Lab
 
 export type Livello = 'base' | 'intermedio' | 'avanzato'
 export type StatoIscritto = 'attivo' | 'sospeso' | 'eliminato'

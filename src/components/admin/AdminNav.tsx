@@ -26,8 +26,8 @@ export default function AdminNav({ email }: { email: string }) {
     <nav className="bg-white border-b border-gray-100 sticky top-0 z-10">
       <div className="max-w-6xl mx-auto px-4 flex items-center justify-between h-14">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">M</div>
-          <span className="font-medium text-sm">My Pilates Studio</span>
+          <img src="/logo.png" alt="My Pilates Lab" className="w-10 h-10 object-contain flex-shrink-0" />
+          <span className="font-medium text-sm">My Pilates Lab</span>
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
           <span className="text-xs bg-brand-50 text-brand-800 px-2 py-0.5 rounded-full font-medium">Admin</span>

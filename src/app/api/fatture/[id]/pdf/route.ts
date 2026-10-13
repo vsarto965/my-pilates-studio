@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { LOGO_PDF_BASE64 } from '@/lib/logo-pdf'
 
 export async function GET(
   request: NextRequest,
@@ -55,11 +56,17 @@ const supabase = createClient(
     const grigio = [85, 85, 85] as [number, number, number]
     const grigioCh = [136, 136, 136] as [number, number, number]
 
+    // ---- HEADER: Logo ----
+    const logoSize = 26
+    const logoY = 12
+    doc.addImage(LOGO_PDF_BASE64, 'JPEG', marginL, logoY, logoSize, logoSize)
+    const textX = marginL + logoSize + 6
+
     // ---- HEADER: Studio ----
     doc.setFontSize(18)
     doc.setTextColor(...nero)
     doc.setFont('helvetica', 'bold')
-    doc.text(studio.nome || 'Studio', marginL, y)
+    doc.text(studio.nome || 'Studio', textX, y)
 
     // ---- HEADER: Numero fattura (destra) ----
     doc.setFontSize(16)
@@ -80,7 +87,7 @@ const supabase = createClient(
     if (studio.telefono) righeStudio.push(studio.telefono)
 
     righeStudio.forEach(r => {
-      doc.text(r, marginL, y)
+      doc.text(r, textX, y)
       y += 5
     })
 
@@ -96,7 +103,7 @@ const supabase = createClient(
     doc.text(`Data: ${dataEmissione}`, marginR, yDx, { align: 'right' })
 
     // Linea separatrice
-    y = Math.max(y, yDx) + 5
+    y = Math.max(y, yDx, logoY + logoSize) + 5
     doc.setDrawColor(...nero)
     doc.setLineWidth(0.5)
     doc.line(marginL, y, marginR, y)

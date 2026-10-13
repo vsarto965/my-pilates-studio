@@ -6,7 +6,7 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'My Pilates Studio',
+  title: 'My Pilates Lab',
   description: 'Gestione corsi e prenotazioni',
   manifest: '/manifest.json',
   icons: {
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'Pilates Studio',
+    title: 'Pilates Lab',
   },
 }
 
